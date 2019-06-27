@@ -1,0 +1,1100 @@
+﻿#include "pch.h"
+
+ 
+//#include "opencv.h"
+//#include "../lodepng/lodepng.h"
+
+//#pragma comment (lib, "opengl32.lib")
+//#pragma comment (lib, "glul32.lib")
+//#pragma comment (lib, "glut32.lib")
+
+namespace cv_tests
+{
+	 
+ 
+}
+ 
+struct Controller_Keyboard //: Uclass
+{
+	//Controller_Keyboard() //: Uclass("Keyboard")
+	//{
+	//	ActiveKeys		;//= vector<bool>(256, false);
+	//	WasPressedKeys	;//= vector<bool>(256, false);
+  	//}
+ 	//
+	////	Обработка поступившего сигнала
+	////	Возможно поступление 2 и более нажатий за кадр
+	////	TODO корректная обработка множественных нажатий
+	//inline void InputPress	(const enigine::KeyEvent	&arg)
+	//{
+	//	HasIvent	= true;
+	//	WasPress	=  arg._is_press  ? true : WasPress;
+	//	WasRelease	= !arg._is_press  ? true : WasRelease;
+	//
+	//	LastKey			= arg._kkeys;
+	//	LastKeyWC		= arg._w_c;
+	//	LastKeyIsPress	= arg._is_press;
+	//
+	//
+ 	//	//	Проверка циклического сигнал в случае залипания
+	//	
+	//	if (LastKeyIsPress) 
+	//	{
+	//		if (ActiveKeys		[(int)LastKey] == false)
+	//			WasPressedKeys	[(int)LastKey] = true;
+	//	}
+	//	else	WasReleasedKeys [(int)LastKey] = true;
+	//
+	//	ActiveKeys	  [(int)LastKey] = LastKeyIsPress;
+  	//}
+ 	//inline bool IsPressed	(KKeys _key)	{	return ActiveKeys	  [int(_key)];	}	//	Нажата ли конопка в данный момент
+  	//inline bool WasPressed	(KKeys _key)	{	return WasPressedKeys [int(_key)];	}	//	Была ли нажата кнопка в этом кадре
+  	//inline bool WasReleased	(KKeys _key)	{	return WasReleasedKeys[int(_key)];	}	//	Была ли нажата отжата в этом кадре
+	//
+	//inline void ReleaseKeys() 
+	//{
+	//	std::fill(ActiveKeys    .begin(), ActiveKeys    .end(),	false);
+	//	std::fill(WasPressedKeys.begin(), WasPressedKeys.end(), false);
+	//
+	//	//memset(&ActiveKeys[0],		false, sizeof(bool) * 256);
+	//	//memset(&WasPressedKeys[0],	false, sizeof(bool) * 256);
+	//}
+	//inline void ClearEvents()
+	//{
+	//	//	Не тратим время на кадрах без нажатия
+	//	if (HasIvent)
+	//	{ 
+	//		//	Очищаем одноразовые события
+	//		std::fill(WasPressedKeys .begin(), WasPressedKeys .end(), false);
+	//		std::fill(WasReleasedKeys.begin(), WasReleasedKeys.end(), false);
+	//		// ms it faster
+	//		//memset(&WasPressedKeys[0],  false, WasPressedKeys.size());
+	//		//memset(&WasReleasedKeys[0], false, WasPressedKeys.size());
+	//
+	//		HasIvent   = false;
+	//		WasPress   = false;
+	//		WasRelease = false;
+	//	}
+ 	//}
+	////////////////////////////////////////////////////////////////////////////
+	////bool	AntiKeysSticky_On = true;
+	////////////////////////////////////////////////////////////////////////////
+	//KKeys	LastKey;				//	Клавиша
+	//wchar_t LastKeyWC;				//	Символ
+	//bool	LastKeyIsPress;			//	Нажатие или отжатие
+	////==============================//
+	//bool	HasIvent   = false;		//	Клава имеет событие // Не очень идеально реализованно возможно лучше все события добавлять в стек а обрабатывать все а не по 1
+	//bool	WasPress   = false;
+	//bool	WasRelease = false;
+	//
+	//std::array<bool,256> ActiveKeys;		//	Активные в данный момент
+	//std::array<bool,256> WasPressedKeys;	//	Единоразовое нажатие, сбрасывается каждый кадр
+	//std::array<bool,256> WasReleasedKeys;	//	Единоразовое отжатие, сбрасывается каждый кадр
+	////////////////////////////////////////////////////////////////////////////
+
+public:
+
+
+};
+struct Controller_Mouse //: Uclass
+{
+	// todo
+	// correct press to x-buttons
+
+private:
+	struct mButtonsState { bool IsPressed;	};
+
+public:
+	Controller_Mouse() //: Uclass("Mouse")
+	{
+ 		//u_Reg("Left  Button", &LEFT_button.IsPressed);
+		//u_Reg("Mid   Button", &MIDDLE_button.IsPressed);
+		//u_Reg("Right Button", &RIGHT_button.IsPressed);
+		//u_Reg("Forw  Button", &FORWARD_button.IsPressed);
+		//u_Reg("Buck  Button", &BUCK_button.IsPressed);
+		
+  	}
+
+	__fast void InputMove	(const os::MouseEvent      &arg)
+	{
+		HasEvent = true;
+		HasMove  = true;
+
+		Xoffset	= X - arg.x;
+		Yoffset	= Y - arg.y;
+ 		X		= arg.x;
+		Y		= arg.y;
+   	}
+ 	__fast void InputPress	(const os::MouseClickEvent &arg)
+	{
+		HasEvent    = true;
+ 		HasClick    = true;
+ 		HasPress    = (arg.is_click  ? true : HasPress);
+		HasRelease  = (!arg.is_click ? true : HasRelease);
+ 
+
+		if (arg.is_click)
+		{
+			if (ActiveKeys[(size_t)arg.mk_key] == false)
+				WasPressedKeys[(size_t)arg.mk_key] = true;
+ 			ActiveKeys[(size_t)arg.mk_key] = true;
+ 		}
+		else 
+		{
+			WasReleasedKeys[(size_t)arg.mk_key]	= true;
+			ActiveKeys[(size_t)arg.mk_key] = false;
+ 		}
+ 
+   		switch (arg.mk_key)
+		{
+		case MKey::MOUSE_LEFT		: LEFT_button	.IsPressed = arg.is_click; break;
+		case MKey::MOUSE_MIDDLE	: MIDDLE_button	.IsPressed = arg.is_click; break;
+		case MKey::MOUSE_RIGHT		: RIGHT_button	.IsPressed = arg.is_click; break;
+		case MKey::MOUSE_FORWARD	: FORWARD_button.IsPressed = arg.is_click; break;
+		case MKey::MOUSE_BUCK		: BUCK_button	.IsPressed = arg.is_click; break;
+   		}
+		switch (arg.mk_key)
+		{
+		case MKey::MOUSE_LEFT		: Has_LB_Event = true;
+		case MKey::MOUSE_MIDDLE	: Has_MB_Event = true;
+		case MKey::MOUSE_RIGHT		: Has_RB_Event = true;
+		case MKey::MOUSE_FORWARD	: break; //FORWARD_button.IsPressed = arg.IsClick; break;
+		case MKey::MOUSE_BUCK		: break; //BACK_button.IsPressed = arg.IsClick; break;
+		}
+
+		if (AnyEventsCallMove)
+			InputMove(arg);
+   	}
+	__fast void InputWeel	(const os::MouseWheelEvent &arg)
+	{
+		HasEvent = true;
+ 		HasWeel  = true;
+		Well	 = arg.wheel;
+		
+		if (AnyEventsCallMove)
+			InputMove(arg);
+ 	}
+ 
+	__fast void ClearEvents (void)
+	{
+		Xoffset      = 0;
+		Yoffset      = 0;
+		Well         = 0;
+
+ 		HasEvent     = false;
+		HasMove      = false;
+		HasClick     = false;
+		HasPress     = false;
+		HasRelease   = false;
+		HasWeel      = false;
+		Has_LB_Event = false;
+		Has_MB_Event = false;
+		Has_RB_Event = false;
+
+		std::fill(WasPressedKeys .begin(), WasPressedKeys .end(), false);
+		std::fill(WasReleasedKeys.begin(), WasReleasedKeys.end(), false);
+	}
+
+  
+	__fast void SetPos		(int x, int y, int canvas_x = -1, int canvas_y = -1, bool add_offset = false)
+	{
+		if (canvas_x == -1 || canvas_y == -1)
+		{
+			GetImpl()->uid();
+		}
+
+		if (add_offset)
+		{
+			Xoffset = x + canvas_x - X;
+			Yoffset = y + canvas_y - Y;
+		}
+ 
+		X = x;
+		Y = y;
+		
+		os_api::set_cursor_pos(INT2{ X + canvas_x, Y + canvas_y });
+	}
+	__fast void ShowMouse	(bool s_or_h)
+	{
+		if ($MouseHidedNow != s_or_h) 
+		{ 
+			$MouseHidedNow = s_or_h; 
+			MouseHided     = s_or_h;
+
+			if (s_or_h)	os_api::show_cursor();
+ 			else		os_api::hide_cursor();
+   		}
+ 	}
+
+
+	inline bool IsPressed	(MKey _key) { return ActiveKeys		[int(_key)]; }
+	inline bool WasPressed	(MKey _key) { return WasPressedKeys	[int(_key)]; }
+	inline bool WasReleased	(MKey _key) { return WasReleasedKeys	[int(_key)]; }
+	inline bool WasWheel	()			 { return HasWeel;						 }
+
+//protected:
+
+	std::array<bool, (size_t)MKey::_enum_size> ActiveKeys;			//	Активные в данный момент
+	std::array<bool, (size_t)MKey::_enum_size> WasPressedKeys;		//	Единоразовое нажатие, сбрасывается каждый кадр
+	std::array<bool, (size_t)MKey::_enum_size> WasReleasedKeys;	//	Единоразовое отжатие, сбрасывается каждый кадр
+											//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	bool MouseFixed_on_Press	= true;		// Закреплена если правая кнопка зажата
+	bool MouseHided				= false;	// Скрыта
+	bool $MouseHidedNow			= false;	// Состояние мыши для экономии вызова апи
+ 	bool AnyEventsCallMove		= false;	// Любое событие (например) имитирует движение мыши
+	//////////////////////////////////////////////////////////////////////////
+	int X;			  //	Cursor XPos относительно окна вродь
+	int Y;			  //	Cursor YPos а может быть и нет
+	int Xoffset;	  //	Mouse offset in this thrame
+	int Yoffset;	  //	Mouse offset in this thrame
+   	int Well;		  //	-1 or +1 if HasWeel else 0
+	//////////////////////////////////////////////////////////////////////////
+	bool HasEvent	  = false;	// Имеет ли мышь какое либо событие
+	bool HasMove	  = false;	// Имеет ли мышь какое либо событие
+  	bool HasClick	  = false;	// Клик (нажатие и отжатие)	был  в этом кадре
+	bool HasPress	  = false;	// Клик является нажатием		 в этом кадре 
+	bool HasRelease   = false;	// Клик является отжатием		 в этом кадре
+	bool HasWeel	  = false;	// Была ли прорутка колеса		 в этом кадре
+ 	bool Has_LB_Event = false;	// Эта ли кнопка вызвала событие в этом кадре
+	bool Has_MB_Event = false;	// Эта ли кнопка вызвала событие в этом кадре
+	bool Has_RB_Event = false;	// Эта ли кнопка вызвала событие в этом кадре
+ 	 
+	mButtonsState LEFT_button;		// Состояние кнопок
+	mButtonsState MIDDLE_button;	
+	mButtonsState RIGHT_button;
+	mButtonsState FORWARD_button;
+	mButtonsState BUCK_button;
+};
+
+static Controller_Keyboard	Keyboard;
+static Controller_Mouse		Mouse;
+
+class MyInputReader : public InputHandler
+{
+	inline void MouseMove		(const MouseEvent&		e) { Mouse.InputMove(e);	}
+	inline void MouseWheel		(const MouseWheelEvent&	e) { Mouse.InputWeel(e);	}
+	inline void MousePress		(const MouseClickEvent& e) { Mouse.InputPress(e);	}
+	inline void MouseRelease	(const MouseClickEvent& e) { Mouse.InputPress(e);	}
+ 
+	//inline void KeyPress		(const KeyEvent&		e)	{ Keyboard.InputPress(arg); }
+	//inline void KeyReleas		(const KeyEvent&		e)	{ Keyboard.InputPress(arg); }
+	
+	inline void ExInputHandler(const os_window_event_sms& e)
+	{
+		auto msg = e.msg;
+		auto lParam = e.lp;
+		auto wParam = e.wp;
+
+		ImGuiIO& io = ImGui::GetIO();
+
+		switch (msg)
+		{
+		case WM_LBUTTONDOWN:									io.MouseDown[0] = true;	 break;
+		case WM_LBUTTONUP:										io.MouseDown[0] = false; break;
+		case WM_RBUTTONDOWN:									io.MouseDown[1] = true;	 break;
+		case WM_RBUTTONUP:										io.MouseDown[1] = false; break;
+		case WM_MBUTTONDOWN:									io.MouseDown[2] = true;	 break;
+		case WM_MBUTTONUP:										io.MouseDown[2] = false; break;
+		case WM_MOUSEWHEEL:										io.MouseWheel += GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? +1.0f : -1.0f; break;
+		case WM_MOUSEMOVE:										io.MousePos.x = (signed short)(lParam);
+			io.MousePos.y = (signed short)(lParam >> 16);	break;
+		case WM_KEYDOWN:	if (wParam < 256)					io.KeysDown[wParam] = 1; break;
+		case WM_KEYUP:		if (wParam < 256)					io.KeysDown[wParam] = 0; break;
+		case WM_CHAR:		if (wParam > 0 && wParam < 0x10000) io.AddInputCharacter((unsigned short)wParam);// You can also use ToAscii()+GetKeyboardState() to retrieve characters.
+			break;
+		}
+
+
+		//std::cout<< fmt::format("ExInputHandler",0); 
+	}
+};
+
+
+template<typename T>
+static bool rand_test(std::function<T(T, T)> f, T min, T max)
+{
+	auto p1 = f(min, max);
+	auto p2 = f(min, max);
+	auto Lrange = math::min(p1, p2);
+	auto Rrange = math::max(p1, p2);
+	auto random = f(Lrange, Rrange);
+
+	std::cout << str::format::insert("[{}] {} | {} | {}\n", typeid(T).name(), Lrange, random, Rrange);
+
+	return math::InRange(random, Lrange, Rrange);
+}
+
+
+ 
+ 
+
+class ShaderCompiliter
+{
+
+};
+
+
+class Render : public gpu_drawer
+{
+public:
+	Render() : DEF_UCLASS("Render(gl_fabric)", modules{ /*module_dx11*/ })
+	{
+
+	}
+
+
+	virtual bool Init(const RenderOptions& RS)
+	{
+		mRS = RS;
+
+		if (!InitDevice		()) { log::info << "InitDevice error";        return false; }
+		if (!InitTopologys	()) { log::info << "InitTopologys error";     return false; }
+		if (!InitSamplers	()) { log::info << "InitSamplers error";      return false; }
+		if (!InitRasterizers()) { log::info << "InitRasterizers error";   return false; }
+		if (!InitBlenders	()) { log::info << "InitBlenders error";      return false; }
+
+		return true;
+	}
+	virtual void Release()
+	{
+		// todo
+	}
+
+
+public:
+
+	void SetSize(size_t w, size_t h)
+	{
+		if (w == 0 || h == 0)
+		{
+			log::debug << fmt::format("Resized: {} - {}", w, h);
+			log::debug << fmt::format("Warning! [x0] resolution setted. Resize skiped.");
+
+			return;
+		}
+
+		mRS.RenderCanvasWight	= w;
+		mRS.RenderCanvasHeight	= h;
+		mRS.RealCanvasWeight	= w;
+		mRS.RealCanvasHight		= h;
+
+		//////////////////////////////////////////////////////////////////////////
+		log::debug << fmt::format("Resized: {} - {}", w, h);
+		ResizeOutput(w, h);
+	}
+	void NotifyFocus(bool focused)
+	{
+		mRS.IsFocused = focused;
+	}
+
+	void Paint()
+	{
+
+		static FLOAT4 ColorReal = { 0,0,0,0 };
+		static FLOAT4 ColorGo = { 0,0,0,0 };
+
+		if (math::equal(ColorReal, ColorGo, 0.001))
+		{
+			ColorGo.x = math::RandomFastReal(0.0, 1.0);
+			ColorGo.y = math::RandomFastReal(0.0, 1.0);
+			ColorGo.z = math::RandomFastReal(0.0, 1.0);
+		}
+		else
+		{
+			ColorReal.x += (ColorGo.x - ColorReal.x) / 500.0;
+			ColorReal.y += (ColorGo.y - ColorReal.y) / 500.0;
+			ColorReal.z += (ColorGo.z - ColorReal.z) / 500.0;
+		}
+
+		if ("resize")
+		{
+			//
+			//	//SetWindowLongPtr
+			//	
+			//
+			//	static LONG NormalStyle = GetWindowLong(mRS.WindowHwnd, GWL_STYLE);
+			//
+			//
+			//		//os_api::SetW
+			//	if (NeedResize == 1)
+			//	{
+			//		gpu_fabric::SetFullScreenState(true);
+			//
+			//	}
+			//	if (NeedResize == 2)
+			//	{
+			//		LONG lStyle = GetWindowLong(mRS.WindowHwnd, GWL_STYLE);
+			//		//lStyle &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZE | WS_MAXIMIZE | WS_SYSMENU);
+			//		//lStyle &= ~WS_POPUPWINDOW;
+			//		lStyle = NormalStyle;
+			//		SetWindowLong(mRS.WindowHwnd, GWL_STYLE, lStyle);
+			//		SetWindowPos(mRS.WindowHwnd, NULL, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+			//		gpu_fabric::SetFullScreenState(false);
+			//	}
+			//	if (NeedResize == 3)
+			//	{
+			//
+			//		
+			//		LONG lStyle = GetWindowLong(mRS.WindowHwnd, GWL_STYLE);
+			//		lStyle &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZE | WS_MAXIMIZE | WS_SYSMENU);
+			//		//lStyle &= WS_POPUPWINDOW;
+			//		SetWindowLong(mRS.WindowHwnd, GWL_STYLE, lStyle);
+			//		SetWindowPos(mRS.WindowHwnd, NULL, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+			//		gpu_fabric::SetFullScreenState(false);
+			//	}
+			//
+			//	NeedResize = 0;
+		}
+
+
+		gpu_drawer::SetRenderTargets(_main_rt.GetRenderTarget(), _main_ds.GetDepthStencil());
+		gpu_drawer::ClearRenderTarget(_main_rt.GetRenderTarget(), ColorReal);
+		gpu_drawer::ClearDepthStencil(_main_ds.GetDepthStencil(), DSClearMode::ClearFull);
+
+		gpu_drawer::BindTopology(TopologyMode::TriangleList);
+		gpu_drawer::BindSampler(SamplerMode::NearPixel);
+		gpu_drawer::BindRasterizer(RasteriserMode::BothSides);
+		gpu_drawer::BindBlender(BlendMode::Opaque);
+
+
+		static gpu_texture        RenderCopy;
+		static gpu_shader_resourse RenderCopyRes;
+
+
+
+		if (TRUE && "3d")
+		{
+
+		}
+
+
+
+		if (TRUE && "imgui")
+		{
+			static ImGuiImpl igp;
+
+			ImGui::GetIO().IniFilename = NULL;
+			ImGui::GetIO().LogFilename = NULL;
+
+			MakeOnce
+			{
+				IMGUI_CHECKVERSION();
+				ImGui::CreateContext();
+ 
+				igp.Init(this);
+				igp.UpdateFontTex();
+
+
+
+
+
+
+
+				///---------------------------------------------------------//
+
+				ImGuiIO& io = ImGui::GetIO();
+				io.Fonts->Clear();
+				//io.Fonts->AddFontDefault();
+ 
+				ImFontConfig icons_config;
+				icons_config.MergeMode = true;
+				icons_config.PixelSnapH = true;
+				//io.Fonts->AddFontFromFileTTF("..\\Data\\Fonts\\ttf\\icons-Awesome.ttf", param_icon_font_size, &icons_config, range_awesome);
+				//io.Fonts->AddFontFromFileTTF("..\\Data\\Fonts\\ttf\\icons-Material.ttf", param_icon_font_size, &icons_config, range_material);
+
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\Cousine-Regular.ttf",	15.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				io.Fonts->AddFontFromFileTTF("assets\\fonts\\DroidSans.ttf",		20.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\Karla-Regular.ttf",	13.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\ProggyClean.ttf",		15.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\ProggyTiny.ttf",		12.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\Roboto-Medium.ttf",	20.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+ 
+				ImGui_ImplDX11_CreateFontsTexture();
+			}
+
+			{
+				ImGuiIO& io = ImGui::GetIO();
+				IM_ASSERT(io.Fonts->IsBuilt());     // Font atlas needs to be built, call renderer _NewFrame() function e.g. ImGui_ImplOpenGL3_NewFrame() 
+ 
+				int w		  = mRS.RenderCanvasWight;
+				int h		  = mRS.RenderCanvasHeight;
+				int display_w = w; // mRS.RealCanvasWeight;
+				int display_h = h; // mRS.RealCanvasHight;
+
+
+				static SuperTimer im_timer;
+ 
+				io.DisplaySize = ImVec2((float)w, (float)h);
+				io.DisplayFramebufferScale = ImVec2(w > 0 ? ((float)display_w / w) : 0, h > 0 ? ((float)display_h / h) : 0);
+				io.DeltaTime = im_timer.GetRoundTime() / 1'000.;
+			
+				//glViewport(0, 0, w, h);
+ 
+ 			}
+
+
+
+
+
+			static bool	 imgui_is_skip_rames	= false;
+			static bool	 imgui_is_CPU_frame		= true;
+			static float imgui_fps_target		= 100.0;
+ 			static bool	 imgui_software_raster	= false;
+			//--------------------------------------------------// imgui fps
+			if (imgui_is_skip_rames)
+			{
+				static SuperTimer ST;
+				static double time_escaped = 9999999;
+
+				time_escaped += ST.GetRoundTime();
+
+				if (time_escaped > (1000.0 / imgui_fps_target))
+				{
+					time_escaped = 0.0;
+					imgui_is_CPU_frame = true;
+				}
+				else
+				{
+					imgui_is_CPU_frame = false;
+				}
+			}
+			else
+			{
+				imgui_is_CPU_frame = true;
+			}
+			//--------------------------------------------------// imgui main
+			if (imgui_is_CPU_frame)
+			{
+ 				igp.NewFrame();
+				//ImGui::NewFrame();
+
+				if ("ImGui CPU work")
+				{
+					//----------------------------------------------------------------------// Render State
+					ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
+					ImGui::SetNextWindowBgAlpha(0.80f);
+					if (ImGui::Begin("global canvas", nullptr,
+						ImGuiWindowFlags_AlwaysAutoResize |
+						ImGuiWindowFlags_NoTitleBar |
+						ImGuiWindowFlags_NoMove |
+						ImGuiWindowFlags_NoFocusOnAppearing |
+						ImGuiWindowFlags_NoBringToFrontOnFocus
+						//ImGuiWindowFlags_NoInputs
+					))
+					{
+						ImVec2 min = { 0, 0 };
+						ImVec2 max = { 1920, 1080 };
+						ImVec4 color = { 1, 0, 0, 1 };
+
+						ImGui::Checkbox("Software render", &imgui_software_raster);
+						ImGui::Checkbox("Save CPU time", &imgui_is_skip_rames);
+						ImGui::SliderFloat("Target ImFps", &imgui_fps_target, 10, 300);
+					}
+					ImGui::End();
+					//----------------------------------------------------------------------// Demo  
+					ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
+					ImGui::ShowDemoWindow(nullptr);
+					//----------------------------------------------------------------------// Render State
+					 
+					static WEB::WebProvider browzer;
+
+
+					static ImGuiWindowFlags this_win_flags = 0;
+					static bool opened = true;
+
+					ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_Once);
+ 					if (ImGui::Begin("Web", &opened, this_win_flags))
+					{
+ 						
+						MakeOnce
+						{
+							browzer.Init(1000, 1000);
+
+						ImGuiStyle& style = ImGui::GetStyle();
+						style.Colors[ImGuiCol_Text] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);	// Текст
+						style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);	// Отключенный текст
+						style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);	// Окно  
+						style.Colors[ImGuiCol_ChildBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);	// Окно в  окне 
+						style.Colors[ImGuiCol_Border] = ImVec4(0.00f, 0.00f, 0.00f, 0.15f);	// обводка
+						style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);	// обводка двойная (тень)
+						style.Colors[ImGuiCol_FrameBg] = ImVec4(0.59f, 0.59f, 0.59f, 0.39f);	// все поля ввода
+						style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.78f, 0.78f, 0.78f, 0.39f);	// все поля ввода (НАВЕДЕНИЕ)
+						style.Colors[ImGuiCol_FrameBgActive] = ImVec4(1.00f, 0.59f, 0.00f, 0.39f);	// все поля ввода (НАЖАТИЕ)
+						style.Colors[ImGuiCol_TitleBg] = ImVec4(1.00f, 0.71f, 0.00f, 0.59f);	// Рамка окна
+						style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(1.00f, 0.71f, 0.00f, 0.78f);	// Рамка окна (СВЕРНУТАЯ)
+						style.Colors[ImGuiCol_TitleBgActive] = ImVec4(1.00f, 0.71f, 0.00f, 1.00f);	// Рамка окна (АКТИВНАЯ)
+						style.Colors[ImGuiCol_MenuBarBg] = ImVec4(1.00f, 1.00f, 0.00f, 0.39f);	// Меню бар
+						style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.24f, 0.24f, 0.24f, 0.12f);	// Скролбар
+						style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.24f, 0.24f, 0.24f, 0.59f);	// Скролбар бегунок
+						style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.24f, 0.24f, 0.24f, 0.39f);	// Скролбар бегунок (НАВЕДЕНИЕ)
+						style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.24f, 0.24f, 0.24f, 0.78f);	// Скролбар бегунок	(НАЖАТИЕ)
+						//style.Colors[ImGuiCol_ComboBg] = ImVec4(0.78f, 0.78f, 0.78f, 0.90f);	// Выборный список
+						style.Colors[ImGuiCol_CheckMark] = ImVec4(1.00f, 0.39f, 0.00f, 0.78f);	// Радио Кнопка
+						style.Colors[ImGuiCol_SliderGrab] = ImVec4(1.00f, 0.59f, 0.00f, 0.78f);	// Бегунок
+						style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(1.00f, 0.59f, 0.00f, 1.00f);	// Бегунок (НАЖАТИЕ)
+						style.Colors[ImGuiCol_Button] = ImVec4(1.00f, 0.78f, 0.24f, 1.00f);	// Кнопка
+						style.Colors[ImGuiCol_ButtonHovered] = ImVec4(1.00f, 0.78f, 0.24f, 0.78f);	// Кнопка (НАВЕДЕНИЕ)
+						style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.94f, 0.71f, 0.16f, 1.00f);	// Кнопка (НАЖАТИЕ)
+						style.Colors[ImGuiCol_Header] = ImVec4(1.00f, 0.78f, 0.24f, 0.86f);	// Сворачиваемая колонка
+						style.Colors[ImGuiCol_HeaderHovered] = ImVec4(1.00f, 0.71f, 0.00f, 1.00f);	// Сворачиваемая колонка (НАВЕДЕНИЕ)
+						style.Colors[ImGuiCol_HeaderActive] = ImVec4(1.00f, 0.78f, 0.24f, 1.00f);	// Сворачиваемая колонка (НАЖАТИЕ)
+						style.Colors[ImGuiCol_Separator] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);	// Линия колонок вертикальная 
+						style.Colors[ImGuiCol_SeparatorHovered] = ImVec4(0.70f, 0.60f, 0.60f, 1.00f);	// Линия колонок вертикальная (НАВЕДЕНИЕ)
+						style.Colors[ImGuiCol_SeparatorActive] = ImVec4(0.90f, 0.70f, 0.70f, 1.00f);	// Линия колонок вертикальная (НАЖАТИЕ)
+						style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.24f, 0.24f, 0.24f, 0.63f);	// Уголочек размера окна
+						style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(1.00f, 0.47f, 0.00f, 0.71f);	// Уголочек размера окна (НАВЕДЕНИЕ)
+						style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(1.00f, 0.47f, 0.00f, 1.00f);	// Уголочек размера окна (НАЖАТИЕ)
+						//style.Colors[ImGuiCol_CloseButton] = ImVec4(0.50f, 0.50f, 0.90f, 0.50f);	// Закрытие окна
+						//style.Colors[ImGuiCol_CloseButtonHovered] = ImVec4(0.70f, 0.70f, 0.90f, 0.60f);	// Закрытие окна → (НАВЕДЕНИЕ)
+						//style.Colors[ImGuiCol_CloseButtonActive] = ImVec4(0.70f, 0.70f, 0.70f, 1.00f);	// Закрытие окна → (НАЖАТИЕ)
+						style.Colors[ImGuiCol_PlotLines] = ImVec4(0.16f, 0.16f, 0.16f, 0.78f);	// Линия
+						style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.00f, 0.70f, 0.00f, 1.00f);	// Линия → (НАВЕДЕНИЕ)
+						style.Colors[ImGuiCol_PlotHistogram] = ImVec4(1.00f, 0.63f, 0.00f, 1.00f);	// Гистограмма
+						style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.43f, 0.00f, 1.00f);	// Гистограмма → (НАВЕДЕНИЕ)
+						style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(1.00f, 0.43f, 0.00f, 1.00f);	// Изменяемый текст фон
+						style.Colors[ImGuiCol_PopupBg] = ImVec4(0.78f, 0.78f, 0.78f, 0.90f);	// Подскака фон
+						style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.20f, 0.20f, 0.20f, 0.31f);	// хз - Затемнение модального окна
+ 				 
+						}
+    
+						if("state")
+						{
+							static int		update_fps = 0;
+							static FLOAT2	canvas(0, 0);
+							static char*	url_now;
+							static char		url_go[128] = "http://";
+							static bool		Go_Press;
+
+							url_now = (char*)browzer.GetUrl();
+
+							ImGui::Text("Core version : %s",	browzer.GetVersion());
+							ImGui::Text("Mem Used     : %zu",	browzer.GetMemUsed());
+							ImGui::Text("Mem Allock   : %zu",	browzer.GetMemAllock());
+							ImGui::Text("Page Title   : %s",	browzer.GetTitle());
+							ImGui::Text("Loading	  : %s",	browzer.IsLoading() ? "true" : "false");
+							ImGui::Text("Crashed	  : %s",	browzer.IsCrashed() ? "true" : "false");
+							ImGui::Text("Web	Size = [%zux%zu]", browzer.GetCanvasW(), browzer.GetCanvasH());
+							ImGui::Text("Canvas Size = [%.0fx%.0f]", canvas.x, canvas.y);
+							ImGui::Text("Update fps  = %i", update_fps);
+
+							ImGui::InputText("##curnt_url", url_now, strlen(url_now));
+							Go_Press =//TODO
+								ImGui::InputText("##go_url", url_go, IM_ARRAYSIZE(url_go), ImGuiInputTextFlags_EnterReturnsTrue);
+							ImGui::SameLine();
+							if (ImGui::Button("GO") || Go_Press)
+							{
+								string str_url = url_go;
+								if (str_url.find("http://") == -1)
+								if (str_url.find("https://") == -1)
+									str_url = "http://" + str_url;
+
+								browzer.LoadPage(str_url);
+							}
+
+							//----------------------------------------------------------// html code
+ 							ImGui::Separator();
+							static std::string _html;
+							static bool show_html = false;
+
+							if (ImGui::Button("Get HTML"))
+							{
+								_html = browzer.GetHtml();
+ 							}
+							if (show_html)
+							{
+								if (ImGui::Button("CLOSE"))
+									show_html = false;
+								
+								ImGui::InputTextMultiline("##s_log", (char*)_html.c_str(), _html.size() , ImVec2(-1.0f, 400), ImGuiInputTextFlags_AllowTabInput);
+
+							}
+
+							ImGui::Separator();
+
+							ImVec2 canvas_pos = ImGui::GetCursorScreenPos();           // ImDrawList API uses screen coordinates!
+							ImVec2 canvas_size = ImGui::GetContentRegionAvail();        // Resize canvas to what's available
+							ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+							canvas = canvas_size;
+							canvas.x -= 2;
+							canvas.y -= 2;
+
+
+							static FLOAT4 color = FLOAT4(math::RandomFastReal(0, 1), math::RandomFastReal(0, 1), math::RandomFastReal(0, 1), 1);
+							static FLOAT4 color2 = FLOAT4(math::RandomFastReal(0, 1), math::RandomFastReal(0, 1), math::RandomFastReal(0, 1), 1);
+							if (!math::equal(color, color2, 0.01))
+							{
+								color.x += (color.x < color2.x) ? +0.01 : -0.01;
+								color.y += (color.y < color2.y) ? +0.01 : -0.01;
+								color.z += (color.z < color2.z) ? +0.01 : -0.01;
+							}
+							else
+							{
+								color2 = FLOAT4(math::RandomFastReal(0, 1), math::RandomFastReal(0, 1), math::RandomFastReal(0, 1), 1);
+							}
+
+							draw_list->AddRect(canvas_pos, ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), ImColor(color.x, color.y, color.z, color.w));
+
+							canvas_pos.x += 1;
+							canvas_pos.y += 1;
+							canvas_size.x -= 2;
+							canvas_size.y -= 2;
+
+							// 					Ethernet::Browzer.PosX   = canvas_pos.x;
+							// 					Ethernet::Browzer.PosY   = canvas_pos.y;
+							// 					Ethernet::Browzer.Wight  = canvas_size.x;
+							// 					Ethernet::Browzer.Height = canvas_size.y;
+												//Ethernet::Browzer.Visble = WIN_BROWSER;
+
+												//ImGui::InvisibleButton("canvas", canvas_size);
+
+												//////////////////////////////////////////////////////////////////////////
+							int PosX = canvas_pos.x;
+							int PosY = canvas_pos.y;
+							int SizeW = canvas_size.x;
+							int SizeH = canvas_size.y;
+							bool Vis = true;
+							//int BoolFocus	= Ethernet::Browzer.Height;
+
+							if ("Resize browser")
+							{
+								static int LastSizeX = 0;
+								static int LastSizeY = 0;
+								bool	   DragInProgress = Mouse.IsPressed(MKey::MOUSE_LEFT);
+								bool	   SizeChanged = (LastSizeX != SizeW) || (LastSizeY != SizeH);
+
+								if ((DragInProgress && SizeChanged) || !opened)
+								{
+									Vis = false;
+									browzer.PauseRender();
+								}
+								else
+								{
+									Vis = true;
+									browzer.ResumeRender();
+
+									if (SizeChanged)
+									{
+										LastSizeX = SizeW;
+										LastSizeY = SizeH;
+
+										//browzer.Resize(SizeW, SizeH);
+									}
+								}
+							}
+							if (Vis && "Input browser")
+							{
+								if (Mouse.HasEvent)
+								{
+									int x = Mouse.X - PosX;
+									int y = Mouse.Y - PosY;
+
+									if (math::InRange(Mouse.X, PosX, PosX + SizeW) && math::InRange(Mouse.Y, PosY, PosY + SizeH))
+									{
+										this_win_flags = ImGuiWindowFlags_NoMove;
+
+										browzer.View()->Focus();
+										browzer.View()->InjectMouseMove(x, y);
+
+										if (Mouse.WasPressed(MKey::MOUSE_LEFT))	browzer.View()->InjectMouseDown(MouseButton::kMouseButton_Left);
+										if (Mouse.WasPressed(MKey::MOUSE_RIGHT))	browzer.View()->InjectMouseDown(MouseButton::kMouseButton_Right);
+										if (Mouse.WasPressed(MKey::MOUSE_MIDDLE))	browzer.View()->InjectMouseDown(MouseButton::kMouseButton_Middle);
+										if (Mouse.WasReleased(MKey::MOUSE_LEFT))	browzer.View()->InjectMouseUp(MouseButton::kMouseButton_Left);
+										if (Mouse.WasReleased(MKey::MOUSE_RIGHT))	browzer.View()->InjectMouseUp(MouseButton::kMouseButton_Right);
+										if (Mouse.WasReleased(MKey::MOUSE_MIDDLE)) browzer.View()->InjectMouseUp(MouseButton::kMouseButton_Middle);
+										if (Mouse.WasWheel())						browzer.View()->InjectMouseWheel(Mouse.Well * 100.0f, 0);
+									}
+									else
+									{
+										browzer.View()->Unfocus();
+										this_win_flags = 0;
+									}
+
+ 								}
+							}
+							if (Vis && "Update 100 per sec")
+							{
+								static std::chrono::time_point<std::chrono::high_resolution_clock> start;
+								static std::chrono::time_point<std::chrono::high_resolution_clock> end;
+								MakeOnce
+								{
+									start = std::chrono::high_resolution_clock::now();
+									end = std::chrono::high_resolution_clock::now();
+								}
+								end = std::chrono::high_resolution_clock::now();
+								std::chrono::duration<double> elapsed_seconds = end - start;
+								start = end;
+
+								elapsed_seconds *= 1000;
+
+								static double dur10 = 0;
+								static double dut1000 = 0;
+								static double fls_counter = 0;
+
+								dur10 += elapsed_seconds.count();
+								dut1000 += elapsed_seconds.count();
+
+								if (dur10 > 50) dur10 = 50;
+								if (dur10 > 20)
+								{
+									dur10 -= 20;
+									browzer.Update();
+									fls_counter++;
+								}
+								if (dut1000 > 1000)
+								{
+									dut1000 -= 1000;
+									update_fps = fls_counter;
+									fls_counter = 0;
+								}
+
+							}
+							if (Vis && "Draw")
+							{
+								ImGui::SetCursorScreenPos(canvas_pos);
+								ImGui::Image(browzer.GetShaderResourse(), ImVec2(SizeW, SizeH));
+								if (ImGui::IsItemHovered())
+								{
+									ImGui::SetTooltip(inUTF8("Loading..."));
+								}
+							}
+
+
+							//////////////////////////////////////////////////////////////////////////
+						}
+
+					}
+					ImGui::End();
+ 
+
+					static ImGuiWindowFlags this_face_flags = 0 |
+						ImGuiWindowFlags_NoScrollbar |
+						ImGuiWindowFlags_NoResize |
+						ImGuiWindowFlags_NoCollapse |
+						ImGuiWindowFlags_NoMove;
+
+					ImGui::SetNextWindowPos(ImVec2(-7, -20), ImGuiCond_Always);
+					ImGui::SetNextWindowSize(ImVec2(960, 515), ImGuiCond_Always);
+					if (ImGui::Begin("Faсe", &opened, this_face_flags))
+					{
+						float left	= 145;
+						float right	= 788;
+						float top	= 170;
+						float bot	= 645;
+
+						static int update_secs = 10;
+
+						static bool need_update = true;
+						static std::string page = inUTF8("https://www.google.ru/search?q=погода москва");
+
+
+						static SuperTimer st;
+						static float time_esc = 0;
+ 						time_esc += st.GetRoundTime();
+
+						if (time_esc /1000 > update_secs)
+						{
+							time_esc = 0;
+							need_update = true;
+						}
+ 
+						if (need_update)
+						{
+							need_update = false;
+							browzer.LoadPage(page);
+						}
+
+	
+						 
+
+
+						if (browzer.IsLoading())
+						{
+							auto pos = ImGui::GetCursorPos();
+							ImGui::InvisibleButton(inUTF8("Обновление"), FLOAT2(1, 1));
+							ImGui::SetCursorPos(pos);
+							ImGui::Button(inUTF8("Обновление"), FLOAT2(right - left, bot - top));
+						}
+						else 
+						{
+							ImGui::Image(browzer.GetShaderResourse(), FLOAT2(right - left, bot - top),
+								FLOAT2(left / 1000, top / 1000),
+								FLOAT2(right / 1000, bot / 1000), FLOAT4(1.03,0.98,0.95,1.0));
+						}
+						
+
+ 
+
+						ImGui::SameLine();
+						ImGui::Dummy(FLOAT2(1,1)); 
+						ImGui::SameLine();
+
+						ImGui::BeginChild("Sub2", ImVec2(-1, -1), true);
+						{
+							//ImGui::PushItemWidth(-100 + 0);
+							//ImGui::InputText("##My_Port", s_port, IM_ARRAYSIZE(s_port)); ImGui::SameLine();
+							//ImGui::PopItemWidth();
+							static int	list_item = -1;
+							static constexpr const char* list_items[] =
+							{
+								inUTF8("Москва"),
+								inUTF8("Санкт-Петербург"),
+								inUTF8("Нальчик"),
+								inUTF8("Аргудан"),
+								inUTF8("Майкоп"),
+							};
+							string arrayy[] = 
+							{
+								inUTF8("Москва"),
+								inUTF8("Санкт-Петербург"),
+								inUTF8("Нальчик"),
+								inUTF8("Аргудан"),
+								inUTF8("Майкоп"),
+							};
+
+
+
+ 							ImGui::Text(inUTF8("Список городов"));
+							ImGui::ListBox("##ip`s", &list_item, list_items, IM_ARRAYSIZE(list_items), 6);
+
+							static int new_select = -1;
+
+							if (new_select != list_item)
+							{
+								time_esc += 1000000000;
+								new_select = list_item;
+
+								page = string(inUTF8("https://www.google.ru/search?q=погода ")) + arrayy[new_select];
+							}
+
+
+							ImGui::Text(inUTF8("Автообновление"));
+							ImGui::SliderInt(inUTF8("(сек.)"), &update_secs, 5, 30 );
+
+							if (ImGui::Button(inUTF8("Обновить")))
+							{
+								time_esc += 1000000000;
+ 
+							}
+
+ 
+						}ImGui::EndChild();
+
+						auto pos = ImGui::GetCursorPos();
+
+  
+						ImGui::Button("Butt");
+						ImGui::Text("Bla Bla Bla");
+						ImGui::Text(inUTF8("Москва"));
+						ImGui::Text(inUTF8("МоскваМоскваМосква"));
+
+					}
+					ImGui::End();
+
+ 				}
+				ImGui::EndFrame();
+				ImGui::Render();
+			}
+
+	 
+			//glfwMakeContextCurrent(window);
+			//glfwGetFramebufferSize(window, &display_w, &display_h);
+			//glClearColor(0.5, 0.5, 0.5, 0.5);
+			//glClear(GL_COLOR_BUFFER_BIT);
+
+			igp.ImplHardDraw();
+
+			//glfwMakeContextCurrent(m_window);
+			//glfwSwapBuffers(m_window);
+ 
+		}
+		Mouse.ClearEvents();
+
+		gpu_drawer::PresentRender();
+
+  
+		return;
+	}
+
+
+public:
+	os::Window *my_window;//for dubug
+
+
+};
+
+
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
+//int main(int argc, char **argv)
+{
+	std::cout << GetBuildInfo();
+
+	setlocale(LC_ALL, "Russian");	// for wcstombs and e.t. 
+// 	SetConsoleOutputCP(65001);		// utf8 encoding in console
+// 	SetConsoleCP(65001);
+	//RESULT OK = CoInitializeEx(NULL, 0/* COINIT_MULTITHREADED | COINIT_SPEED_OVER_MEMORY*/);
+	os_api::Win32::OnUExepCreateMiniDump();
+
+	os::Console console;
+	os::Window	window;
+
+	MyInputReader input;
+
+	Render render;
+	render.my_window = &window; // for debug, mbdell
+	//---------------------------------------------// Console
+	console.Init(ConsoleState());
+	//console.Show();
+	console.RedirectIO();
+	//---------------------------------------------// Window
+	WindowState ws;
+
+	ws.Wight = 950;
+	ws.Height = 492;
+	ws.Resizble = false;
+	ws.Title = L"Weather Viewer 0.95";
+
+	window.Init(ws);
+	window.ShowHide();
+	window.AttachInputHandler(&input);
+	//---------------------------------------------// Render
+	const RenderOptions& RO = const RenderOptions&();
+
+	RO.WindowHwnd			= window.GetWindowId();
+	RO.RenderCanvasHeight	= window.GetHeight();
+	RO.RenderCanvasWight	= window.GetWidth();
+
+	RO.AAMode				= AntiAliasingMode::NoAA;
+	RO.MSAA_SamplerCount	= 1;
+	RO.MSAA_QualityLevel	= 0;
+	RO.AnisotropicQuality	= 8;
+
+	RO.single_thread_gpu_api_use_promise = true;
+	RO.disable_gpu_task_timeout = false;
+
+	log::info << "Init render...";
+	render.Init(RO);
+	///////////////////////////////////////////// 
+  
+	log::info << "First test draw...";
+	render.Paint();  
+
+	while (window.IsExit() == false)
+	{
+		window.HandleMessages();
+
+		if (window.IsResized())
+			render.SetSize(window.GetWidth(), window.GetHeight());
+
+		render.NotifyFocus(window.IsActive());
+		render.Paint();
+	}
+	window.Close();
+	render.Release();
+
+	std::this_thread::sleep_for(std::chrono::seconds(3));
+	return 0;
+}
+
+

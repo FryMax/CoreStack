@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>etc</Filter>
+    </ClCompile>
+    <ClCompile Include="test.format.cpp">
+      <Filter>tests</Filter>
+    </ClCompile>
+    <ClCompile Include="test.digits.cpp">
+      <Filter>tests</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>etc</Filter>
+    </ClInclude>
+    <ClInclude Include="google_test_shared.h">
+      <Filter>tests</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="tests">
+      <UniqueIdentifier>{88d9672a-7ae1-4967-9720-ac2abeeeae82}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="etc">
+      <UniqueIdentifier>{a2b7281b-a803-41e4-8ba5-31cdb3226b43}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

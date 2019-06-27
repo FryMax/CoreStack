@@ -1,0 +1,2264 @@
+﻿#include "pch.h"
+#include "bitmap.h"
+
+#include "opencv.h"
+#include "../lodepng/lodepng.h"
+
+#pragma comment (lib, "opengl32.lib")
+//#pragma comment (lib, "glul32.lib")
+//#pragma comment (lib, "glut32.lib")
+
+namespace cv_tests
+{
+	using namespace cv;
+
+	static cv::VideoCapture vd_rain;
+	static cv::VideoCapture vd_temp;
+	static cv::VideoCapture vd_wind;
+	static cv::VideoCapture vd_press;
+
+	struct cacher
+	{
+
+	public:
+
+
+		void CaptureSourse(cv::VideoCapture* vd, INT2 resize_output = { 0,0 })
+		{
+			sourse = vd;
+			vd_sourse_resolution = {
+				(int)sourse->get(CV_CAP_PROP_FRAME_WIDTH),
+				(int)sourse->get(CV_CAP_PROP_FRAME_HEIGHT) };
+
+			vd_curent_frame = 0;
+			vd_frame_count = sourse->get(CV_CAP_PROP_FRAME_COUNT);
+
+			if (math::equal(resize_output, { 0,0 }))
+				vd_output_resolution = vd_sourse_resolution;
+			else
+				vd_output_resolution = resize_output;
+
+			start_cache_process();
+		}
+
+		//=================================// read frame
+
+		result<cv::Mat> GetNextFrame()
+		{
+			cv::Mat frame;
+			//*sourse >> frame;
+			if (sourse)
+				*sourse >> frame;
+			
+			if (!frame.empty())
+			{
+				vd_curent_frame++;
+				return frame;
+			}
+			else
+				return error_result("failed to capture frame");
+			//////////////////////////////////////////////////////////////////////////
+			if (next_get_frame_id >= cache_size)
+				next_get_frame_id = 0;
+
+			//while (frames_ready <= 0)
+			//	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+			if (cache_state[next_get_frame_id] == true)
+			{
+				cv::Mat out;
+
+				out = cache[next_get_frame_id];
+				cache_state[next_get_frame_id] = false;
+
+				frames_ready--;
+				next_get_frame_id++;
+				vd_curent_frame++;
+
+				//log::debug << str::format::insert("Frame get {}", vd_curent_frame);
+
+				return out;
+			}
+
+			return error_result("Cache not ready / end of stream");
+		}
+		void GoToFrame(int frame)
+		{
+			vd_curent_frame = frame;
+			frames_ready = 0;
+
+			sourse->set(CV_CAP_PROP_POS_FRAMES, frame);
+
+			start_cache_process();
+		}
+
+	public:
+
+		void stop_cache_process()
+		{
+			cache_loop = false;
+		}
+		void start_cache_process()
+		{
+			return;
+
+			//std::terminate();
+			if (cache_loop != true)
+			{
+				cache_loop = true;
+				cache_thread = std::thread(&cacher::_cache_thread, this);
+				cache_thread.detach();
+			}
+		}
+		void _cache_thread()
+		{
+			while (cache_loop)
+			{
+				if (frames_ready < cache_size)
+				{
+					cv::Mat frame;
+					//*sourse >> frame;
+					*sourse >> frame;
+
+					if (!frame.empty())
+					{
+						if (!math::equal(vd_sourse_resolution, vd_output_resolution))
+							cv::resize(frame, frame, cv::Size(vd_output_resolution.x, vd_output_resolution.y));
+
+						if (next_cache_frame_id >= cache_size)
+							next_cache_frame_id = 0;
+
+						cache[next_cache_frame_id] = frame;
+						cache_state[next_cache_frame_id] = true;
+
+						//log::debug << str::format::insert("Frame cached {}", vd_curent_frame + frames_ready);
+
+						next_cache_frame_id++;
+						frames_ready++;
+					}
+					else
+						cache_loop = false;
+				}
+				else
+				{
+					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				}
+			}
+		}
+
+
+		int GetFramesReady() 
+		{
+			return 1;
+			return frames_ready;
+		}
+
+	protected:
+		cv::VideoCapture* sourse;
+		std::thread  cache_thread;
+		atomic<bool> cache_loop = false;
+
+		enum { cache_size = 6 };
+
+		std::array <cv::Mat, cache_size> cache;
+		std::array <bool, cache_size> cache_state;
+
+		atomic<int>  next_cache_frame_id = 0;
+		atomic<int>  next_get_frame_id = 0;
+		atomic<int>  frames_ready = 0;
+
+	public:
+
+		int vd_curent_frame = 0;
+		int vd_frame_count = 0;
+		INT2 vd_sourse_resolution;
+		INT2 vd_output_resolution;
+	};
+ 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+namespace gl_test 
+{
+	struct gl_texture : api_texture
+	{
+	public:
+	 
+ 		GLuint uid_tex;
+ 		size_t w;
+		size_t h;
+
+		void ReInit(size_t _w, size_t _h, void* _data = nullptr)
+		{
+  			w = _w;
+			h = _h;
+
+			api_release();
+
+			glGenTextures(1, &uid_tex);
+			glBindTexture(GL_TEXTURE_2D, uid_tex);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, _data);
+		}
+
+		void UpdateData(void* data)
+		{
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		}
+		void UpdateData(BITMAP_RGBA& bitmap)
+		{
+			if (bitmap.w != w || bitmap.h != h)
+				ReInit(bitmap.w, bitmap.h);
+ 
+			glBindTexture(GL_TEXTURE_2D, uid_tex);
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, bitmap.raw_data(0,0));
+			glBindTexture(GL_TEXTURE_2D, 0);
+		}
+
+	protected:
+		virtual impl_texture* api_get_impl	() { return nullptr;			}
+		virtual texture_state api_get_state	() { return texture_state();	}
+
+		void api_release() 
+		{
+			if (uid_tex)
+				glDeleteTextures(1, &uid_tex);
+			uid_tex = 0;
+  		}
+
+		bool api_create(size_t _w, size_t _h, int mip_levels, gpuAccess cpu_access)
+		{
+			mip_levels;// not used
+			cpu_access;// not used
+			w = _w;
+			h = _h;
+
+  			glGenTextures(1, &uid_tex);
+ 			api_resize(w,h);
+
+			return true;
+		}
+ 		bool api_resize(size_t w, size_t h){return true;}
+		virtual bool api_create_from_file(const fs::path&) { return true; }
+		virtual bool api_create_from_memory(void*) { return true; }
+		virtual bool api_copy_tex_all_to(impl_texture* target) { return true; }
+		virtual bool api_copy_tex_sub_to(impl_texture* target, QUAD box1, QUAD box2) { return true; }
+
+
+
+
+		//virtual bool                api_mapped_to_gpu() = 0;
+		//virtual bool                api_convert_format() = 0;
+		//virtual bool                api_cpu_access      () = 0;
+		//virtual INT2                api_get_size    () = 0;
+		//virtual tex_format          api_get_format  () = 0;
+		//virtual bool ResolveSubresource  //Copy a multisampled resource into a non-multisampled resource.
+
+	};
+
+
+};
+
+using namespace gl_test;
+
+
+
+
+
+namespace im_gui_addons
+{
+	void colors_light() 
+	{
+		ImGuiStyle& style = ImGui::GetStyle();
+		style.Colors[ImGuiCol_Text] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);	// Текст
+		style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);	// Отключенный текст
+		style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);	// Окно  
+		style.Colors[ImGuiCol_ChildBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);	// Окно в  окне 
+		style.Colors[ImGuiCol_Border] = ImVec4(0.00f, 0.00f, 0.00f, 0.15f);	// обводка
+		style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);	// обводка двойная (тень)
+		style.Colors[ImGuiCol_FrameBg] = ImVec4(0.59f, 0.59f, 0.59f, 0.39f);	// все поля ввода
+		style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.78f, 0.78f, 0.78f, 0.39f);	// все поля ввода (НАВЕДЕНИЕ)
+		style.Colors[ImGuiCol_FrameBgActive] = ImVec4(1.00f, 0.59f, 0.00f, 0.39f);	// все поля ввода (НАЖАТИЕ)
+		style.Colors[ImGuiCol_TitleBg] = ImVec4(1.00f, 0.71f, 0.00f, 0.59f);	// Рамка окна
+		style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(1.00f, 0.71f, 0.00f, 0.78f);	// Рамка окна (СВЕРНУТАЯ)
+		style.Colors[ImGuiCol_TitleBgActive] = ImVec4(1.00f, 0.71f, 0.00f, 1.00f);	// Рамка окна (АКТИВНАЯ)
+		style.Colors[ImGuiCol_MenuBarBg] = ImVec4(1.00f, 1.00f, 0.00f, 0.39f);	// Меню бар
+		style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.24f, 0.24f, 0.24f, 0.12f);	// Скролбар
+		style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.24f, 0.24f, 0.24f, 0.59f);	// Скролбар бегунок
+		style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.24f, 0.24f, 0.24f, 0.39f);	// Скролбар бегунок (НАВЕДЕНИЕ)
+		style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.24f, 0.24f, 0.24f, 0.78f);	// Скролбар бегунок	(НАЖАТИЕ)
+		//style.Colors[ImGuiCol_ComboBg] = ImVec4(0.78f, 0.78f, 0.78f, 0.90f);	// Выборный список
+		style.Colors[ImGuiCol_CheckMark] = ImVec4(1.00f, 0.39f, 0.00f, 0.78f);	// Радио Кнопка
+		style.Colors[ImGuiCol_SliderGrab] = ImVec4(1.00f, 0.59f, 0.00f, 0.78f);	// Бегунок
+		style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(1.00f, 0.59f, 0.00f, 1.00f);	// Бегунок (НАЖАТИЕ)
+		style.Colors[ImGuiCol_Button] = ImVec4(1.00f, 0.78f, 0.24f, 1.00f);	// Кнопка
+		style.Colors[ImGuiCol_ButtonHovered] = ImVec4(1.00f, 0.78f, 0.24f, 0.78f);	// Кнопка (НАВЕДЕНИЕ)
+		style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.94f, 0.71f, 0.16f, 1.00f);	// Кнопка (НАЖАТИЕ)
+		style.Colors[ImGuiCol_Header] = ImVec4(1.00f, 0.78f, 0.24f, 0.86f);	// Сворачиваемая колонка
+		style.Colors[ImGuiCol_HeaderHovered] = ImVec4(1.00f, 0.71f, 0.00f, 1.00f);	// Сворачиваемая колонка (НАВЕДЕНИЕ)
+		style.Colors[ImGuiCol_HeaderActive] = ImVec4(1.00f, 0.78f, 0.24f, 1.00f);	// Сворачиваемая колонка (НАЖАТИЕ)
+		style.Colors[ImGuiCol_Separator] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);	// Линия колонок вертикальная 
+		style.Colors[ImGuiCol_SeparatorHovered] = ImVec4(0.70f, 0.60f, 0.60f, 1.00f);	// Линия колонок вертикальная (НАВЕДЕНИЕ)
+		style.Colors[ImGuiCol_SeparatorActive] = ImVec4(0.90f, 0.70f, 0.70f, 1.00f);	// Линия колонок вертикальная (НАЖАТИЕ)
+		style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.24f, 0.24f, 0.24f, 0.63f);	// Уголочек размера окна
+		style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(1.00f, 0.47f, 0.00f, 0.71f);	// Уголочек размера окна (НАВЕДЕНИЕ)
+		style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(1.00f, 0.47f, 0.00f, 1.00f);	// Уголочек размера окна (НАЖАТИЕ)
+		//style.Colors[ImGuiCol_CloseButton] = ImVec4(0.50f, 0.50f, 0.90f, 0.50f);	// Закрытие окна
+		//style.Colors[ImGuiCol_CloseButtonHovered] = ImVec4(0.70f, 0.70f, 0.90f, 0.60f);	// Закрытие окна → (НАВЕДЕНИЕ)
+		//style.Colors[ImGuiCol_CloseButtonActive] = ImVec4(0.70f, 0.70f, 0.70f, 1.00f);	// Закрытие окна → (НАЖАТИЕ)
+		style.Colors[ImGuiCol_PlotLines] = ImVec4(0.16f, 0.16f, 0.16f, 0.78f);	// Линия
+		style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.00f, 0.70f, 0.00f, 1.00f);	// Линия → (НАВЕДЕНИЕ)
+		style.Colors[ImGuiCol_PlotHistogram] = ImVec4(1.00f, 0.63f, 0.00f, 1.00f);	// Гистограмма
+		style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.43f, 0.00f, 1.00f);	// Гистограмма → (НАВЕДЕНИЕ)
+		style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(1.00f, 0.43f, 0.00f, 1.00f);	// Изменяемый текст фон
+		style.Colors[ImGuiCol_PopupBg] = ImVec4(0.78f, 0.78f, 0.78f, 0.90f);	// Подскака фон
+		style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.20f, 0.20f, 0.20f, 0.31f);	// хз - Затемнение модального окна
+	}
+	void colors_lighter()
+	{
+		ImGuiStyle& style = ImGui::GetStyle();
+		style.Colors[ImGuiCol_Text] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
+		style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
+		style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.94f);
+		style.Colors[ImGuiCol_PopupBg] = ImVec4(0.78f, 0.78f, 0.78f, 1.00f);
+		style.Colors[ImGuiCol_Border] = ImVec4(0.00f, 0.00f, 0.00f, 0.47f);
+		style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+		style.Colors[ImGuiCol_FrameBg] = ImVec4(0.59f, 0.59f, 0.59f, 0.20f);
+		style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.90f, 0.63f, 0.00f, 0.63f);
+		style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.90f, 0.31f, 0.00f, 0.78f);
+		style.Colors[ImGuiCol_TitleBg] = ImVec4(1.00f, 0.71f, 0.00f, 0.78f);
+		style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(1.00f, 0.71f, 0.00f, 0.78f);
+		style.Colors[ImGuiCol_TitleBgActive] = ImVec4(1.00f, 0.71f, 0.00f, 1.00f);
+		style.Colors[ImGuiCol_MenuBarBg] = ImVec4(1.00f, 1.00f, 0.00f, 0.39f);
+		style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.24f, 0.24f, 0.24f, 0.12f);
+		style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.24f, 0.24f, 0.24f, 0.47f);
+		style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.24f, 0.24f, 0.24f, 0.39f);
+		style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.24f, 0.24f, 0.24f, 0.78f);
+		style.Colors[ImGuiCol_CheckMark] = ImVec4(1.00f, 0.39f, 0.00f, 0.78f);
+		style.Colors[ImGuiCol_SliderGrab] = ImVec4(1.00f, 0.59f, 0.00f, 0.78f);
+		style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(1.00f, 0.59f, 0.00f, 1.00f);
+		style.Colors[ImGuiCol_Button] = ImVec4(1.00f, 0.78f, 0.24f, 1.00f);
+		style.Colors[ImGuiCol_ButtonHovered] = ImVec4(1.00f, 0.78f, 0.24f, 0.78f);
+		style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.94f, 0.71f, 0.16f, 1.00f);
+		style.Colors[ImGuiCol_Header] = ImVec4(1.00f, 0.78f, 0.24f, 0.86f);
+		style.Colors[ImGuiCol_HeaderHovered] = ImVec4(1.00f, 0.71f, 0.00f, 1.00f);
+		style.Colors[ImGuiCol_HeaderActive] = ImVec4(1.00f, 0.78f, 0.24f, 1.00f);
+		style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.24f, 0.24f, 0.24f, 0.63f);
+		style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(1.00f, 0.47f, 0.00f, 0.71f);
+		style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(1.00f, 0.47f, 0.00f, 1.00f);
+		style.Colors[ImGuiCol_PlotLines] = ImVec4(0.16f, 0.16f, 0.16f, 0.78f);
+		style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.00f, 0.70f, 0.00f, 1.00f);
+		style.Colors[ImGuiCol_PlotHistogram] = ImVec4(1.00f, 0.63f, 0.00f, 1.00f);
+		style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.43f, 0.00f, 1.00f);
+		style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(1.00f, 0.43f, 0.00f, 1.00f);
+	}
+
+}
+
+
+
+
+
+
+
+
+
+class MyInputReader : public os::InputHandler
+{
+	//	inline void MouseMove		(const MouseEvent&		e)	{ std::cout<< fmt::format("MouseMove ({},{})\n",e.x,e.y); };
+	//	inline void MouseWheel		(const MouseWheelEvent&	e)	{ std::cout<< fmt::format("MouseWheel		",0); };
+	//	inline void MousePress		(const MouseClickEvent& e)	{ std::cout<< fmt::format("MousePress		",0); };
+	//	inline void MouseRelease	(const MouseClickEvent& e)	{ std::cout<< fmt::format("MouseRelease		",0); };
+	//	inline void KeyPress		(const KeyEvent&		e)	{ std::cout<< fmt::format("KeyPress			",0); };
+	//	inline void KeyReleas		(const KeyEvent&		e)	{ std::cout<< fmt::format("KeyReleas		",0); };
+	inline void ExInputHandler(const os_window_event_sms& e)
+	{
+		auto msg = e.msg;
+		auto lParam = e.lp;
+		auto wParam = e.wp;
+
+		//ImGuiIO& io = ImGui::GetIO();
+ 		//switch (msg)
+		//{
+		//case WM_LBUTTONDOWN:									io.MouseDown[0] = true;	 break;
+		//case WM_LBUTTONUP:										io.MouseDown[0] = false; break;
+		//case WM_RBUTTONDOWN:									io.MouseDown[1] = true;	 break;
+		//case WM_RBUTTONUP:										io.MouseDown[1] = false; break;
+		//case WM_MBUTTONDOWN:									io.MouseDown[2] = true;	 break;
+		//case WM_MBUTTONUP:										io.MouseDown[2] = false; break;
+		//case WM_MOUSEWHEEL:										io.MouseWheel += GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? +1.0f : -1.0f; break;
+		//case WM_MOUSEMOVE:										io.MousePos.x = (signed short)(lParam);
+		//														io.MousePos.y = (signed short)(lParam >> 16);	break;
+		//case WM_KEYDOWN:	if (wParam < 256)					io.KeysDown[wParam] = 1; break;
+		//case WM_KEYUP:		if (wParam < 256)					io.KeysDown[wParam] = 0; break;
+		//case WM_CHAR:		if (wParam > 0 && wParam < 0x10000) io.AddInputCharacter((unsigned short)wParam);// You can also use ToAscii()+GetKeyboardState() to retrieve characters.
+		//	break;
+		//}
+
+
+		if (ImGui::GetCurrentContext() == NULL)
+			return;
+
+		ImGuiIO& io = ImGui::GetIO();
+		switch (msg)
+		{
+		case WM_MOUSEMOVE:	io.MousePos.x = (signed short)(lParam);
+							io.MousePos.y = (signed short)(lParam >> 16);	break;
+		case WM_LBUTTONDOWN: case WM_LBUTTONDBLCLK:
+		case WM_RBUTTONDOWN: case WM_RBUTTONDBLCLK:
+		case WM_MBUTTONDOWN: case WM_MBUTTONDBLCLK:
+		{
+			int button = 0;
+			if (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK) button = 0;
+			if (msg == WM_RBUTTONDOWN || msg == WM_RBUTTONDBLCLK) button = 1;
+			if (msg == WM_MBUTTONDOWN || msg == WM_MBUTTONDBLCLK) button = 2;
+			//if (!ImGui::IsAnyMouseDown() && ::GetCapture() == NULL)
+			//	::SetCapture(hwnd);
+			io.MouseDown[button] = true;
+			return;
+		}
+		case WM_LBUTTONUP:
+		case WM_RBUTTONUP:
+		case WM_MBUTTONUP:
+		{
+			int button = 0;
+			if (msg == WM_LBUTTONUP) button = 0;
+			if (msg == WM_RBUTTONUP) button = 1;
+			if (msg == WM_MBUTTONUP) button = 2;
+			io.MouseDown[button] = false;
+			//if (!ImGui::IsAnyMouseDown() && ::GetCapture() == hwnd)
+			//	::ReleaseCapture();
+			return;
+		}
+		case WM_MOUSEWHEEL:
+			io.MouseWheel += (float)GET_WHEEL_DELTA_WPARAM(wParam) / (float)WHEEL_DELTA;
+			return;
+		//case WM_MOUSEHWHEEL:
+		//	io.MouseWheelH += (float)GET_WHEEL_DELTA_WPARAM(wParam) / (float)WHEEL_DELTA;
+		//	return;
+		case WM_KEYDOWN:
+		case WM_SYSKEYDOWN:
+			if (wParam < 256)
+				io.KeysDown[wParam] = 1;
+			return;
+		case WM_KEYUP:
+		case WM_SYSKEYUP:
+			if (wParam < 256)
+				io.KeysDown[wParam] = 0;
+			return;
+		case WM_CHAR:
+			// You can also use ToAscii()+GetKeyboardState() to retrieve characters.
+			if (wParam > 0 && wParam < 0x10000)
+				io.AddInputCharacter((unsigned short)wParam);
+			return;
+		case WM_SETCURSOR:
+			//if (LOWORD(lParam) == HTCLIENT && ImGui_ImplWin32_UpdateMouseCursor())
+			//	return;
+			return;
+		case WM_DISPLAYCHANGE:
+			//g_WantUpdateMonitors = true;
+			return;
+		}
+		return;
+
+		//std::cout<< fmt::format("ExInputHandler",0); 
+	}
+};
+
+
+ 
+
+
+ 
+ 
+
+class ShaderCompiliter
+{
+
+};
+
+
+class Render : public gpu_drawer
+{
+public:
+	Render() : DEF_UCLASS("Render(gl_fabric)", modules{ /*module_dx11*/ })
+	{
+
+	}
+
+
+	virtual bool Init(const RenderOptions& RO)
+	{
+		mRS = RO;
+
+		if (!InitDevice		()) { log::info << "InitDevice error";        return false; }
+		if (!InitTopologys	()) { log::info << "InitTopologys error";     return false; }
+		if (!InitSamplers	()) { log::info << "InitSamplers error";      return false; }
+		if (!InitRasterizers()) { log::info << "InitRasterizers error";   return false; }
+		if (!InitBlenders	()) { log::info << "InitBlenders error";      return false; }
+
+		return true;
+	}
+	virtual void Release()
+	{
+		// todo
+	}
+
+
+public:
+
+	void SetSize(size_t w, size_t h)
+	{
+		if (w == 0 || h == 0)
+		{
+			log::debug << str::format::insert("Resized: {} - {}", w, h);
+			log::debug << str::format::insert("Warning! [x0] resolution setted. Resize skiped.");
+
+			
+
+			return;
+		}
+
+ 
+		mRS.RenderCanvasWight	= w;
+		mRS.RenderCanvasHeight	= h;
+		mRS.RealCanvasWeight	= w;
+		mRS.RealCanvasHight		= h;
+
+		//////////////////////////////////////////////////////////////////////////
+		log::debug << str::format::insert("Resized: {} - {}", w, h);
+		ResizeOutput(w, h);
+	}
+	void NotifyFocus(bool focused)
+	{
+		mRS.IsFocused = focused;
+	}
+
+	void Paint()
+	{
+ 		static FLOAT4 ColorReal = { 0,0,0,0 };
+		static FLOAT4 ColorGo = { 0,0,0,0 };
+
+		if (math::equal(ColorReal, ColorGo, 0.001))
+		{
+			ColorGo.x = math::RandomFastReal(0.0, 1.0);
+			ColorGo.y = math::RandomFastReal(0.0, 1.0);
+			ColorGo.z = math::RandomFastReal(0.0, 1.0);
+		}
+		else
+		{
+			ColorReal.x += (ColorGo.x - ColorReal.x) / 500.0;
+			ColorReal.y += (ColorGo.y - ColorReal.y) / 500.0;
+			ColorReal.z += (ColorGo.z - ColorReal.z) / 500.0;
+		}
+
+		if ("resize")
+		{
+			//
+			//	//SetWindowLongPtr
+			//	
+			//
+			//	static LONG NormalStyle = GetWindowLong(mRS.WindowHwnd, GWL_STYLE);
+			//
+			//
+			//		//os_api::SetW
+			//	if (NeedResize == 1)
+			//	{
+			//		gpu_fabric::SetFullScreenState(true);
+			//
+			//	}
+			//	if (NeedResize == 2)
+			//	{
+			//		LONG lStyle = GetWindowLong(mRS.WindowHwnd, GWL_STYLE);
+			//		//lStyle &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZE | WS_MAXIMIZE | WS_SYSMENU);
+			//		//lStyle &= ~WS_POPUPWINDOW;
+			//		lStyle = NormalStyle;
+			//		SetWindowLong(mRS.WindowHwnd, GWL_STYLE, lStyle);
+			//		SetWindowPos(mRS.WindowHwnd, NULL, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+			//		gpu_fabric::SetFullScreenState(false);
+			//	}
+			//	if (NeedResize == 3)
+			//	{
+			//
+			//		
+			//		LONG lStyle = GetWindowLong(mRS.WindowHwnd, GWL_STYLE);
+			//		lStyle &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZE | WS_MAXIMIZE | WS_SYSMENU);
+			//		//lStyle &= WS_POPUPWINDOW;
+			//		SetWindowLong(mRS.WindowHwnd, GWL_STYLE, lStyle);
+			//		SetWindowPos(mRS.WindowHwnd, NULL, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+			//		gpu_fabric::SetFullScreenState(false);
+			//	}
+			//
+			//	NeedResize = 0;
+		}
+
+
+		gpu_drawer::SetRenderTargets(_main_rt.GetRenderTarget(), _main_ds.GetDepthStencil());
+		gpu_drawer::ClearRenderTarget(_main_rt.GetRenderTarget(), ColorReal);
+		gpu_drawer::ClearDepthStencil(_main_ds.GetDepthStencil(), DSClearMode::ClearFull);
+
+		gpu_drawer::BindTopology(TopologyMode::TriangleList);
+		gpu_drawer::BindSampler(SamplerMode::NearPixel);
+		gpu_drawer::BindRasterizer(RasteriserMode::BothSides);
+		gpu_drawer::BindBlender(BlendMode::Opaque);
+ 
+
+		static gpu_texture        RenderCopy;
+		static gpu_shader_resourse RenderCopyRes;
+
+
+		//////////////////////////////////////////////////////////////////////////
+		//caps
+
+		MakeOnce //caps
+		{
+		
+	
+			int max;
+			log::debug << str::format::insert("Device caps:");
+			glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max);			log::debug << str::format::insert("MAX_TEXTURE_SIZE: {}", max);
+			glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &max);	log::debug << str::format::insert("GL_MAX_TEXTURE_IMAGE_UNITS: {}", max);
+			 
+			
+			
+			
+		}
+
+
+		static FLOAT4 trg_vertices[] =
+		{
+			FLOAT4(-0.5f, -0.5f, 0.0f, 0.0f),
+			FLOAT4(0.5f, -0.5f, 0.0f, 0.0f),
+			FLOAT4(0.0f,  0.66f, 0.0f, 0.0f),
+		};
+		FLOAT4 qwad_vertices[] =
+		{
+			FLOAT4(0.5f,  0.5f, 0.0f, 1.0f),  // Верхний правый угол
+			FLOAT4(0.5f, -0.5f, 0.0f, 1.0f),  // Нижний правый угол
+			FLOAT4(-0.5f, -0.5f, 0.0f, 1.0f),  // Нижний левый угол
+			FLOAT4(-0.5f,  0.5f, 0.0f, 1.0f),  // Верхний левый угол
+		};
+		GLuint qwad_indices[] =
+		{  // Помните, что мы начинаем с 0!
+			0, 1, 3,   // Первый треугольник
+			1, 2, 3    // Второй треугольник
+		};
+ 
+ 
+		static GLuint shaderProgram;			// vs + ps
+
+		MakeOnce
+		{ 
+ 			//////////////////////////////////////////////////////////////////////////
+			
+			 
+			const char* shader_text_vs =
+				"	#version 120  														  \n"
+				"   attribute vec4 position;											  \n"  
+				"	//layout(location = 0) in vec4 position;							  \n"
+				"	void main()															  \n"
+				"	{																	  \n"
+				"		gl_Position = vec4(position.x, position.y, position.z, 1.0);	  \n"
+				"	}																	  \n";
+			
+			const char* shader_text_ps =
+				"	#version 120														 \n "
+				"	 																	 \n "
+				"	void main()															 \n "
+				"	{																	 \n "
+				"		gl_FragColor = vec4(1.0f, 0.5f, 0.2f, 0.6f);					 \n "
+				"	}																	 \n ";
+  			
+ 			GLint success;
+			GLchar infoLog[512];
+			
+
+			static GLuint vertex_shader_pos4;
+			static GLuint fragment_shader_color;
+
+			////////////////////////////////////////////////////////////
+			vertex_shader_pos4 = glCreateShader(GL_VERTEX_SHADER);
+			glShaderSource(vertex_shader_pos4, 1, &shader_text_vs, NULL);
+			glCompileShader(vertex_shader_pos4);
+ 			glGetShaderiv(vertex_shader_pos4, GL_COMPILE_STATUS, &success);
+			if (!success)
+			{
+				glGetShaderInfoLog(vertex_shader_pos4, 512, NULL, infoLog);
+				std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+			}
+			////////////////////////////////////////////////////////////
+			
+			fragment_shader_color = glCreateShader(GL_FRAGMENT_SHADER);
+			glShaderSource(fragment_shader_color, 1, &shader_text_ps, NULL);
+			glCompileShader(fragment_shader_color);
+			glGetShaderiv(vertex_shader_pos4, GL_COMPILE_STATUS, &success);
+			if (!success)
+			{
+				glGetShaderInfoLog(vertex_shader_pos4, 512, NULL, infoLog);
+				std::cout << "ERROR " << infoLog << std::endl;
+			}
+			////////////////////////////////////////////////////////////
+ 			shaderProgram = glCreateProgram();
+			
+			glAttachShader(shaderProgram, vertex_shader_pos4);
+			glAttachShader(shaderProgram, fragment_shader_color);
+			glLinkProgram(shaderProgram);
+			glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+			if(!success) 
+			{
+				glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+				std::cout << "ERROR " << infoLog << std::endl;
+			}
+			////////////////////////////////////////////////////////////
+			glDeleteShader(vertex_shader_pos4);
+			glDeleteShader(fragment_shader_color);
+   			////////////////////////////////////////////////////////////
+  		}
+
+		 //-------------------------------------------------------------//
+
+		//static GLuint VAO_trg;		// Vertex buffer objects 
+		static GLuint vert_buff_trg;	// Vertex array object
+
+		//static GLuint VAO_sqrt;
+		static GLuint vert_buff_sqrt;
+		static GLuint indx_buff_sqrt;
+
+		//-------------------------------------------------------------//
+
+		MakeOnce
+		{
+  			////////////////////////////////////////////////////////////////////////// VAO
+			glGenBuffers(1, &vert_buff_trg);
+ 
+			// 1. Привязываем VAO
+			//glBindVertexArray(VAO_trg);
+			{
+				// 2. Копируем наш массив вершин в буфер для OpenGL
+				glBindBuffer(GL_ARRAY_BUFFER, vert_buff_trg);
+				glBufferData(GL_ARRAY_BUFFER, sizeof(trg_vertices), trg_vertices, GL_STATIC_DRAW);
+				// 3. Устанавливаем указатели на вершинные атрибуты 
+				glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(FLOAT4), (GLvoid*)0);
+				glEnableVertexAttribArray(0);
+
+			}
+			//4. Отвязываем VAO
+			//glBindVertexArray(0);
+		
+		}
+ 		MakeOnce
+		{
+ 			//glGenVertexArrays(1, &VAO_sqrt);
+			glGenBuffers(1, &vert_buff_sqrt);
+			glGenBuffers(1, &indx_buff_sqrt);
+ 
+			//glBindVertexArray(VAO_sqrt);
+			{
+				glBindBuffer(GL_ARRAY_BUFFER, vert_buff_sqrt);
+				glBufferData(GL_ARRAY_BUFFER, sizeof(qwad_vertices), qwad_vertices, GL_STATIC_DRAW);
+
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indx_buff_sqrt);
+				glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(qwad_indices), qwad_indices, GL_STATIC_DRAW);
+
+				glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(FLOAT4), (GLvoid*)0);
+				glEnableVertexAttribArray(0);
+			}
+			//glBindVertexArray(0);
+
+		}
+
+
+		glUseProgram(shaderProgram);
+		//glBindVertexArray(VAO_trg);
+		{ 
+			glBindBuffer(GL_ARRAY_BUFFER, vert_buff_trg);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(FLOAT4), (GLvoid*)0);
+			glEnableVertexAttribArray(0);
+  			glDrawArrays(GL_TRIANGLES, 0, 3);
+		}
+		//glBindVertexArray(0);
+		glUseProgram(0);
+ 
+ 		 
+		 
+		
+		glUseProgram(shaderProgram);
+		//glBindVertexArray(VAO_sqrt);
+		{
+			glBindBuffer(GL_ARRAY_BUFFER, vert_buff_sqrt);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indx_buff_sqrt);
+			glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(FLOAT4), (GLvoid*)0);
+			glEnableVertexAttribArray(0);
+  			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		}
+		//glBindVertexArray(0);
+		glUseProgram(0);
+
+		// gui
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+ 		glDisableVertexAttribArray(0);
+
+  
+
+		if (TRUE && "3d")
+		{
+
+		}
+
+
+
+		if (TRUE && "imgui")
+		{
+			static ImGuiImpl igp;
+
+			ImGui::GetIO().IniFilename = NULL;
+			ImGui::GetIO().LogFilename = NULL;
+
+			MakeOnce
+			{
+				IMGUI_CHECKVERSION();
+				ImGui::CreateContext();
+
+				igp.Init(this);
+				igp.UpdateFontTex();
+
+				ImGuiIO& io = ImGui::GetIO();
+				io.Fonts->Clear();
+				//io.Fonts->AddFontDefault();
+
+				ImFontConfig icons_config;
+				icons_config.MergeMode = true;
+				icons_config.PixelSnapH = true;
+				//io.Fonts->AddFontFromFileTTF("..\\Data\\Fonts\\ttf\\icons-Awesome.ttf", param_icon_font_size, &icons_config, range_awesome);
+				//io.Fonts->AddFontFromFileTTF("..\\Data\\Fonts\\ttf\\icons-Material.ttf", param_icon_font_size, &icons_config, range_material);
+
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\Cousine-Regular.ttf",	15.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				io.Fonts->AddFontFromFileTTF("assets\\fonts\\DroidSans.ttf", 20.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\Karla-Regular.ttf",	13.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\ProggyClean.ttf",		15.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\ProggyTiny.ttf",		12.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\Roboto-Medium.ttf",	20.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+
+				ImGui_ImplOpenGL2_CreateFontsTexture();
+			}
+
+				if (true)
+				{
+					ImGuiIO& io = ImGui::GetIO();
+					IM_ASSERT(io.Fonts->IsBuilt());     // Font atlas needs to be built, call renderer _NewFrame() function e.g. ImGui_ImplOpenGL3_NewFrame() 
+
+					int w = mRS.RenderCanvasWight;
+					int h = mRS.RenderCanvasHeight;
+					int display_w = w; // mRS.RealCanvasWeight;
+					int display_h = h; // mRS.RealCanvasHight;
+
+
+					static SuperTimer im_timer;
+
+					io.DisplaySize = ImVec2((float)w, (float)h);
+					io.DisplayFramebufferScale = ImVec2(w > 0 ? ((float)display_w / w) : 0, h > 0 ? ((float)display_h / h) : 0);
+					io.DeltaTime = im_timer.GetRoundTime() / 1'000.;
+
+					glViewport(0, 0, w, h);
+ 				}
+
+
+			static bool	 imgui_is_skip_rames = false;
+			static bool	 imgui_is_CPU_frame = true;
+			static float imgui_fps_target = 100.0;
+			static bool	 imgui_software_raster = false;
+			//--------------------------------------------------// imgui fps
+			if (imgui_is_skip_rames)
+			{
+				static SuperTimer ST;
+				static double time_escaped = 9999999;
+
+				time_escaped += ST.GetRoundTime();
+
+				if (time_escaped > (1000.0 / imgui_fps_target))
+				{
+					time_escaped = 0.0;
+					imgui_is_CPU_frame = true;
+				}
+				else
+				{
+					imgui_is_CPU_frame = false;
+				}
+			}
+			else
+			{
+				imgui_is_CPU_frame = true;
+			}
+			//--------------------------------------------------// imgui main
+			if (imgui_is_CPU_frame)
+			{
+				igp.NewFrame();
+				ImGui::NewFrame();
+
+				if ("ImGui CPU work")
+				{
+					static bool WND_DEMO	= false;
+					static bool WND_LIVE	= false;
+					static bool WND_WEATHER = true;
+					//----------------------------------------------------------------------// Render State
+					ImGui::SetNextWindowPos(ImVec2(16, 16), ImGuiCond_Once);
+					ImGui::SetNextWindowBgAlpha(0.8f);
+					if (ImGui::Begin("global canvas", nullptr,
+						ImGuiWindowFlags_AlwaysAutoResize |
+						ImGuiWindowFlags_NoTitleBar |
+						ImGuiWindowFlags_NoMove |
+						ImGuiWindowFlags_NoFocusOnAppearing |
+						ImGuiWindowFlags_NoBringToFrontOnFocus
+						//ImGuiWindowFlags_NoInputs
+					))
+					{
+						ImVec2 min = { 0, 0 };
+						ImVec2 max = { (float)mRS.RenderCanvasWight, (float)mRS.RealCanvasHight };
+						ImVec4 color = { 1, 0, 0, 1 };
+
+						/////////////////////////////////////////////////////////////////////////////////////////
+						ImGui::Text("ImGui params");
+						ImGui::Checkbox("Software render (disabled)", &imgui_software_raster);
+						ImGui::Checkbox("Save CPU time", &imgui_is_skip_rames);
+						if (imgui_is_skip_rames)
+						{
+							ImGui::SameLine();
+							ImGui::PushItemWidth(100);
+							ImGui::SliderFloat("Target ImFps", &imgui_fps_target, 10, 300);
+							ImGui::PopItemWidth();
+						}
+
+						if (ImGui::Checkbox("VSunc", &mRS.vSunc))
+						{
+							if (mRS.vSunc == true)
+								glfwSwapInterval(1);
+							else
+								glfwSwapInterval(0);
+						}
+
+						if (ImGui::Button("Light colors"))
+						{
+							im_gui_addons::colors_light();
+						}
+						ImGui::SameLine();
+						if (ImGui::Button("UltraLight colors"))
+						{
+							im_gui_addons::colors_lighter();
+						}
+ 
+						//-----------------------------------------------------------------------------------//
+						ImGui::Separator();
+						ImGui::Text("Window stile");
+
+						static int last_op = 0;
+						int change_op = 0;
+						if (ImGui::Button("Used"))			change_op = 1; ImGui::SameLine();
+						if (ImGui::Button("Normal"))		change_op = 2; ImGui::SameLine();
+						if (ImGui::Button("FullScreen"))	change_op = 3;
+
+						if (change_op != 0)
+						{
+							static LONG UsedStile = GetWindowLong(my_window->GetWindowId().hwnd, GWL_STYLE);
+							static LONG NormalStyle = WS_OVERLAPPEDWINDOW;
+							static LONG Borderless = WS_POPUP;
+							static INT2 StartPos = { my_window->GetX(),	 my_window->GetY() };
+							static INT2 StartSize = { my_window->GetWidth(), my_window->GetHeight() };
+
+							if (change_op == 1)
+							{
+								SetWindowLong(my_window->GetWindowId().hwnd, GWL_STYLE, UsedStile);
+								SetWindowPos(my_window->GetWindowId().hwnd, NULL, StartPos.x, StartPos.y, StartSize.x, StartSize.y, SWP_FRAMECHANGED | (last_op == 3 ? 0 : SWP_NOMOVE | SWP_NOSIZE) | SWP_NOZORDER | SWP_NOOWNERZORDER);
+							}
+							if (change_op == 2)
+							{
+								SetWindowLong(my_window->GetWindowId().hwnd, GWL_STYLE, UsedStile | NormalStyle);
+								SetWindowPos(my_window->GetWindowId().hwnd, NULL, StartPos.x, StartPos.y, StartSize.x, StartSize.y, SWP_FRAMECHANGED | (last_op == 3 ? 0 : SWP_NOMOVE | SWP_NOSIZE) | SWP_NOZORDER | SWP_NOOWNERZORDER);
+							}
+							if (change_op == 3)
+							{
+								StartPos = { my_window->GetX(),	 my_window->GetY() };
+								StartSize = { my_window->GetWidth(), my_window->GetHeight() };
+								int w = os_api::get_system_metric(os::os_sys_metric::MAIN_MONITOR_W).GetValue();
+								int h = os_api::get_system_metric(os::os_sys_metric::MAIN_MONITOR_H).GetValue();
+
+								SetWindowLong(my_window->GetWindowId().hwnd, GWL_STYLE, UsedStile & ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZE | WS_MAXIMIZE | WS_SYSMENU));
+								SetWindowPos(my_window->GetWindowId().hwnd, HWND_TOP, 0, 0, w, h, SWP_FRAMECHANGED/*SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER*/);
+							}
+							last_op = change_op;
+						}
+						//-----------------------------------------------------------------------------------//
+						ImGui::Separator();
+ 						ImGui::Text("Launch console");
+
+						if (ImGui::Button("Demo"))		WND_DEMO	= !WND_DEMO;
+						if (ImGui::Button("Live"))		WND_LIVE	= !WND_LIVE;
+						if (ImGui::Button("Weather"))	WND_WEATHER = !WND_WEATHER;
+
+						//-----------------------------------------------------------------------------------//
+						ImGui::Separator();
+						ImGui::Text("Debug info");
+						ImGui::Text(str::format::insert("RenderSize: [{} - {}]", mRS.RenderCanvasWight, mRS.RealCanvasHight).c_str());
+						ImGui::Text(str::format::insert("WindowSize: [{} - {}]", my_window->GetWidth(), my_window->GetHeight()).c_str());
+						ImGui::Text(str::format::insert("MousePos:   [{} - {}]", ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y).c_str());
+
+						//-----------------------------------------------------------------------------------//
+						ImGui::Separator();
+						ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+					}
+					ImGui::End();
+					//----------------------------------------------------------------------// Demo  
+					ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
+					ImGui::ShowDemoWindow(&WND_DEMO);
+					//----------------------------------------------------------------------// Live
+					if (WND_LIVE)
+					{
+					 
+					
+						if (ImGui::Begin("Live", &WND_LIVE, 0))
+						{
+							enum { SIZE_W = 256 };
+							enum { SIZE_H = 256 };
+
+ 							static BITMAP_RGBA ram_world(SIZE_W, SIZE_H, PIXEL_RGBA_256{ (uint8_t)120,(uint8_t)0,(uint8_t)0,(uint8_t)255 });
+							static BITMAP_RGBA temp_buff(SIZE_W, SIZE_H, PIXEL_RGBA_256{ (uint8_t)120,(uint8_t)0,(uint8_t)0,(uint8_t)255 });
+							static gl_texture gpu_texture;
+
+							MakeOnce
+							{
+								BITMAP_RGBA fill(64, 64, PIXEL_RGBA_256{
+								(uint8_t)190,
+								(uint8_t)190,
+								(uint8_t)190,
+								(uint8_t)255 });
+
+								gpu_texture.ReInit(fill.w, fill.h);
+								gpu_texture.UpdateData(fill.raw_data(0,0));
+							}
+
+							static SuperTimer ST;
+
+
+
+
+
+							ImGuiIO&		io = ImGui::GetIO();
+							ImGuiContext*	context = ImGui::GetCurrentContext();
+							ImGuiWindow*	window = context->CurrentWindow;
+							ImDrawList*		drawer = window->DrawList;
+
+							static ImDrawCallback rnear = [](const ImDrawList* parent_list, const ImDrawCmd* cmd)
+							{
+								glBindTexture(GL_TEXTURE_2D, *(GLuint*)cmd->UserCallbackData);
+								glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+								glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+							};
+							static ImDrawCallback lenear = [](const ImDrawList* parent_list, const ImDrawCmd* cmd)
+							{
+								glBindTexture(GL_TEXTURE_2D, *(GLuint*)cmd->UserCallbackData);
+								glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+								glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+							};
+							static ImDrawCallback fanear = [](const ImDrawList* parent_list, const ImDrawCmd* cmd)
+							{
+								glBindTexture(GL_TEXTURE_2D, *(GLuint*)cmd->UserCallbackData);
+								glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+								glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+							};
+
+
+
+							drawer->AddCallback(rnear, &gpu_texture.uid_tex);
+							ImGui::Image((ImTextureID)(intptr_t)gpu_texture.uid_tex, { 1024,1024 });
+
+							//---------------------------------------------------------------------// gui calls
+							ImGui::SameLine();
+							ImGui::BeginGroup();
+							{
+								auto pos = ImGui::GetCursorPos() + ImGui::GetWindowPos();
+								auto size = ImGui::GetContentRegionAvail();
+
+								//if (pos.x < pos.x + size.x && pos.y < pos.y + size.y)
+								//	drawer->AddRect(pos - FLOAT2{ 2,2 }, pos + size, 0xFF000020);
+
+								//////////////////////////////////////////////////////////////////////////
+								static SuperTimer ST;
+								static float _time_escaped = 0;
+
+								static bool _auto_update = false;
+								static bool _update_frame = false;
+
+								// params
+								static int	 size_w = SIZE_W;
+								static int	 size_w_setter = SIZE_W;
+								static int	 size_h = SIZE_H;
+								static int	 size_h_setter = SIZE_H;
+								//static bool  edit_clear_curent = true;
+								static float cells_fps_target = 30;//15.;		// times per sec
+								static float cells_fps_target_setter = 30;//15.;		// times per sec
+								// stats
+								static int stat_generation_seed = math::Random(0, 100000000);//dummy
+								static int stat_pass_round = 0;//dummy
+								static int stat_live_shells = 0;
+
+
+
+								// dock gui
+
+								ImGui::PushItemWidth(160);//------------------------------------------PushItemWidth 
+
+								ImGui::Text("Generation seel:");
+								ImGui::InputInt("##0", &stat_generation_seed, 0, 0);
+
+								ImGui::Text("Pass round:");
+								ImGui::InputInt("##1", &stat_pass_round, 0, 0);
+
+								ImGui::Text("Live cells:");
+								ImGui::InputInt("##2", &stat_live_shells, 0, 0);
+
+								ImGui::Text("Fps target:");
+								ImGui::InputFloat("##3", &cells_fps_target_setter, 0, 0);
+								ImGui::SameLine();
+								if (ImGui::SmallButton("set"))
+									cells_fps_target = cells_fps_target_setter;
+
+								ImGui::Separator();//-------------------------------------separator
+
+								ImGui::InputInt("MapSizeW", &size_w_setter, 1, 10);
+								ImGui::InputInt("MapSizeH", &size_h_setter, 1, 10);
+
+
+								ImGui::PopItemWidth();//----------------------------------------------PopItemWidth
+
+
+
+
+								//=====================================================================// updaters
+								if (ImGui::Button("Clear"))
+								{
+									ForArray(w, ram_world.w)
+									ForArray(h, ram_world.h)
+										*ram_world.raw_data(w, h) = { 0,0,0,255 };
+
+									stat_pass_round = 0;
+								}
+								if (ImGui::Button("Resize & Randomize"))
+								{
+									size_w = size_w_setter;
+									size_h = size_h_setter;
+
+									ram_world = BITMAP_RGBA(size_w, size_h, { 0,0,0,255 });
+
+									ForArray(w, ram_world.w - ram_world.w * 0.3)
+									ForArray(h, ram_world.h - ram_world.h * 0.3)
+										ram_world.raw_data(w + ram_world.w * 0.15, h + ram_world.h * 0.15)->r = math::Random(0, 1) == 1 ? 255 : 0;
+
+									stat_pass_round = 0;
+								}
+								if (ImGui::Button("Get from copyboard"))
+								{
+									auto result = os::io::clipboard::GetClipboardImageRGBA();
+									if (result.IsSucceed())
+									{
+										auto copypaste = result.GetValue();
+
+										size_w = size_w_setter = copypaste.w;
+										size_h = size_h_setter = copypaste.h;
+
+										ram_world.copy_from_ptr(copypaste.w, copypaste.h, copypaste.data);
+
+										BITMAP_RGBA convert(size_w, size_h);
+
+										ForArray(w, ram_world.w)
+										ForArray(h, ram_world.h)
+										{
+											convert.raw_data(w, h)->b = ram_world.raw_data(w, h)->r;
+											convert.raw_data(w, h)->g = ram_world.raw_data(w, h)->g;
+											convert.raw_data(w, h)->r = ram_world.raw_data(w, h)->b;
+											convert.raw_data(w, h)->a = ram_world.raw_data(w, h)->a;
+										}
+										ram_world = convert;
+
+										stat_pass_round = 0;
+									}
+								}
+
+								if ("read file")
+								{
+									ImGui::SameLine();
+									if (ImGui::Button("get.1"))
+									{
+										auto copypaste = lodepng_read_image("assets/aaa.png");
+
+										size_w = size_w_setter = copypaste.w;
+										size_h = size_h_setter = copypaste.h;
+
+										ram_world.copy_from_ptr(copypaste.w, copypaste.h, copypaste.data);
+
+										stat_pass_round = 0;
+
+									} ImGui::SameLine();
+									if (ImGui::Button("get.2"))
+									{
+										auto copypaste = lodepng_read_image("assets/bbb.png");
+
+										size_w = size_w_setter = copypaste.w;
+										size_h = size_h_setter = copypaste.h;
+
+										ram_world.copy_from_ptr(copypaste.w, copypaste.h, copypaste.data);
+
+										stat_pass_round = 0;
+									} ImGui::SameLine();
+									if (ImGui::Button("get.3"))
+									{
+										auto copypaste = lodepng_read_image("assets/ccc.png");
+
+										size_w = size_w_setter = copypaste.w;
+										size_h = size_h_setter = copypaste.h;
+
+										ram_world.copy_from_ptr(copypaste.w, copypaste.h, copypaste.data);
+
+										stat_pass_round = 0;
+									}
+								}
+								 
+								//=====================================================================// time
+								if (_auto_update)
+								{
+									_time_escaped += ST.GetRoundTime();
+
+									if (_time_escaped > (1000.0 / cells_fps_target))
+									{
+										_update_frame = true;
+									}
+								}
+
+								if (ImGui::Button("Update")) _update_frame = true;
+								ImGui::SameLine();
+								ImGui::Checkbox("AutoUpdate", &_auto_update);
+
+								//=====================================================================// gens
+								ImGui::Dummy({ 10,10 }); ImGui::Separator(); ImGui::Dummy({ 10,10 });
+								ImGui::Text("Gen switchers:");
+								
+								static bool enable_1_gen = true;
+								static bool enable_2_gen = false;
+								static bool enable_3_gen = false;
+
+ 								ImGui::PushStyleColor(ImGuiCol_Button, FLOAT4(255, 0, 0, 255));
+								ImGui::PushStyleColor(ImGuiCol_ButtonHovered, FLOAT4(255, 0, 0, 255));
+								ImGui::PushStyleColor(ImGuiCol_ButtonActive, FLOAT4(255, 0, 0, 255));
+								ImGui::Button(" ", { 20,20 });
+								ImGui::SameLine();
+								ImGui::Checkbox("Enable firstborn gen", &enable_1_gen);
+								ImGui::PopStyleColor(3);
+
+								ImGui::PushStyleColor(ImGuiCol_Button, FLOAT4(0, 255, 0, 255));
+								ImGui::PushStyleColor(ImGuiCol_ButtonHovered, FLOAT4(0, 255, 0, 255));
+								ImGui::PushStyleColor(ImGuiCol_ButtonActive, FLOAT4(0, 255, 0, 255));
+								ImGui::Button(" ", { 20,20 });
+								ImGui::SameLine();
+								ImGui::Checkbox("Enable 2 gen", &enable_2_gen);
+								ImGui::PopStyleColor(3);
+
+								ImGui::PushStyleColor(ImGuiCol_Button, FLOAT4(0, 0, 255, 255));
+								ImGui::PushStyleColor(ImGuiCol_ButtonHovered, FLOAT4(0, 0, 255, 255));
+								ImGui::PushStyleColor(ImGuiCol_ButtonActive, FLOAT4(0, 0, 255, 255));
+								ImGui::Button(" ", { 20,20 });
+								ImGui::SameLine();
+								ImGui::Checkbox("Enable 3 gen", &enable_3_gen);
+								ImGui::PopStyleColor(3);
+
+
+								auto _imgui_colored_button = [](int& val, int id1, int id2)
+								{
+									std::string term;
+
+									if (val == -1)
+									{
+										ImGui::PushStyleColor(ImGuiCol_Button,			FLOAT4(255, 0, 0, 200));
+										ImGui::PushStyleColor(ImGuiCol_ButtonHovered,	FLOAT4(255, 0, 0, 230));
+										ImGui::PushStyleColor(ImGuiCol_ButtonActive,	FLOAT4(255, 0, 0, 255));
+										term = "-1";
+									}
+									if (val == 0)
+									{
+										ImGui::PushStyleColor(ImGuiCol_Button,			FLOAT4(255, 255, 255, 200));
+										ImGui::PushStyleColor(ImGuiCol_ButtonHovered,	FLOAT4(255, 255, 255, 230));
+										ImGui::PushStyleColor(ImGuiCol_ButtonActive,	FLOAT4(255, 255, 255, 255));
+										term = "0";
+									}
+									if (val == +1)
+									{
+										ImGui::PushStyleColor(ImGuiCol_Button,			FLOAT4(0, 255, 0, 200));
+										ImGui::PushStyleColor(ImGuiCol_ButtonHovered,	FLOAT4(0, 255, 0, 230));
+										ImGui::PushStyleColor(ImGuiCol_ButtonActive,	FLOAT4(0, 255, 0, 255));
+										term = "+1";
+ 									}
+		 
+									  
+									bool press = ImGui::Button(str::format::insert("{}##{}{}", term, id1, id2).c_str(), {30,30});
+									ImGui::PopStyleColor(3);
+
+									if (press && val == -1) {val = +0; press = false;}
+									if (press && val == +0) {val = +1; press = false;}
+									if (press && val == +1) {val = -1; press = false;}
+  								};
+
+								ImGui::Dummy({10,10 }); ImGui::Separator(); ImGui::Dummy({ 10,10 });
+ 								ImGui::Text("Gen Data:");
+
+								static int arr[] = {+1,+1,+1,+1,+0,+1,+1,+1,+1};
+
+								ForArray(i,3)
+								{	
+									ForArray(j, 3)
+									{
+										_imgui_colored_button(arr[i * 3 + j], i, j);
+										ImGui::SameLine();
+									}
+									ImGui::Dummy({ 0,0});
+ 								}
+
+								static int bir[3] = { 3, 2, 4 };
+
+								ImGui::PushItemWidth(160);//------------------------------------------PushItemWidth 
+  								ImGui::InputInt("Birth",	&bir[0], 1, 1);
+								ImGui::InputInt("Live min", &bir[1], 1, 1);
+								ImGui::InputInt("Dead min", &bir[2], 1, 1);
+								ImGui::PopItemWidth();//----------------------------------------------PopItemWidth
+
+								//=====================================================================// _update_frame
+ 
+								if (_update_frame)
+								{
+									_time_escaped = fmod(_time_escaped, cells_fps_target);
+									_update_frame = false;
+
+									if (temp_buff.size() != ram_world.size())
+									{
+										temp_buff = ram_world.get_copy();
+
+										SuperTimer ST;
+										ST.SetStart();
+										gpu_texture.ReInit(ram_world.size().x, ram_world.size().y, ram_world.data);
+										ST.SetEnd();
+
+										log::info << str::format::insert("gl reinit texture:[{}-{}] {}",
+											ram_world.size().x,
+											ram_world.size().y,
+											ST.GetTimeReal());
+									}
+									////////////////////////////////////////////////////////////
+									stat_pass_round++;
+
+	#define pos_macro(a, b) ((a < 0) ? (b-1) : (a > b - 1) ? (0) : a) //todo -200 if 100
+
+
+
+									temp_buff.fill_by_color({0,0,0,255});
+
+									ForArray(W, size_w)
+									ForArray(H, size_h)
+									{
+
+										auto _pos_macro = [](int a, int b)
+										{
+											int val = ((a < 0) ? (b + a) : (a >= b - 1) ? (b - 1) : a);
+
+											log::info << str::format::insert("for was gen {} {}", a, val);
+
+											return val;
+										};
+
+
+										struct gen
+										{
+											int mat_sign[9] =
+											{
+												+1,+1,+1,
+												+1,+0,+1,
+												+1,+1,+1,
+											};
+
+											int birn_min = 3;
+											int live_min = 2;
+											int dead_min = 4;
+										};
+										struct gen1
+										{
+											int mat_sign[9] =
+											{
+												+1,+1,+1,
+												+1,+0,+1,
+												+1,+1,+1,
+											};
+
+											int birn_min = 3;
+											int live_min = 3;
+											int dead_min = 3;
+										};
+										struct gen2
+										{
+											int mat_sign[9] =
+											{
+												+1,+1,+1,
+												+1,+0,+1,
+												+1,+1,+1,
+											};
+
+											int birn_min = 8;
+											int live_min = 8;
+											int dead_min = 8;
+										};
+
+										static gen normal_gen;
+										static gen1 lab_gen;
+										static gen2 nab_gen;
+ 
+
+
+										int i = 0;
+										int w = W;
+										int h = H;
+
+										if (w == 0 || h == 0 || w >= (size_w - 1) || h >= (size_h - 1))
+										{
+											const auto aa1 = ram_world.raw_data(pos_macro(w - 1, size_w), pos_macro(h - 1, size_h));
+											const auto aa2 = ram_world.raw_data(pos_macro(w + 0, size_w), pos_macro(h - 1, size_h));
+											const auto aa3 = ram_world.raw_data(pos_macro(w + 1, size_w), pos_macro(h - 1, size_h));
+											const auto aa4 = ram_world.raw_data(pos_macro(w - 1, size_w), pos_macro(h + 0, size_h));
+											const auto aa5 = ram_world.raw_data(pos_macro(w + 0, size_w), pos_macro(h + 0, size_h));
+											const auto aa6 = ram_world.raw_data(pos_macro(w + 1, size_w), pos_macro(h + 0, size_h));
+											const auto aa7 = ram_world.raw_data(pos_macro(w - 1, size_w), pos_macro(h + 1, size_h));
+											const auto aa8 = ram_world.raw_data(pos_macro(w + 0, size_w), pos_macro(h + 1, size_h));
+											const auto aa9 = ram_world.raw_data(pos_macro(w + 1, size_w), pos_macro(h + 1, size_h));
+
+
+											if (aa1->r > 0 || aa1->g > 0 || aa1->b > 0) i++;
+											if (aa2->r > 0 || aa2->g > 0 || aa2->b > 0) i++;
+											if (aa3->r > 0 || aa3->g > 0 || aa3->b > 0) i++;
+											if (aa4->r > 0 || aa4->g > 0 || aa4->b > 0) i++;
+											if (aa5->r > 0 || aa5->g > 0 || aa5->b > 0) i;//////
+											if (aa6->r > 0 || aa6->g > 0 || aa6->b > 0) i++;
+											if (aa7->r > 0 || aa7->g > 0 || aa7->b > 0) i++;
+											if (aa8->r > 0 || aa8->g > 0 || aa8->b > 0) i++;
+											if (aa9->r > 0 || aa9->g > 0 || aa9->b > 0) i++;
+ 											  
+										}
+										else
+										{
+											const auto aa1 = ram_world.raw_data(w - 1, h - 1);
+											const auto aa2 = ram_world.raw_data(w + 0, h - 1);
+											const auto aa3 = ram_world.raw_data(w + 1, h - 1);
+											const auto aa4 = ram_world.raw_data(w - 1, h + 0);
+											const auto aa5 = ram_world.raw_data(w + 0, h + 0);
+											const auto aa6 = ram_world.raw_data(w + 1, h + 0);
+											const auto aa7 = ram_world.raw_data(w - 1, h + 1);
+											const auto aa8 = ram_world.raw_data(w + 0, h + 1);
+											const auto aa9 = ram_world.raw_data(w + 1, h + 1);
+
+											if (aa1->r > 0 || aa1->g > 0 || aa1->b > 0) i++;
+											if (aa2->r > 0 || aa2->g > 0 || aa2->b > 0) i++;
+											if (aa3->r > 0 || aa3->g > 0 || aa3->b > 0) i++;
+											if (aa4->r > 0 || aa4->g > 0 || aa4->b > 0) i++;
+											if (aa5->r > 0 || aa5->g > 0 || aa5->b > 0) i;//////
+											if (aa6->r > 0 || aa6->g > 0 || aa6->b > 0) i++;
+											if (aa7->r > 0 || aa7->g > 0 || aa7->b > 0) i++;
+											if (aa8->r > 0 || aa8->g > 0 || aa8->b > 0) i++;
+											if (aa9->r > 0 || aa9->g > 0 || aa9->b > 0) i++;
+										}
+
+										auto in_p  = ram_world.raw_data(w, h);
+ 										auto out_p = temp_buff.raw_data(w, h);
+
+						 
+
+										if (enable_1_gen)
+ 										if (in_p->r == 0 && in_p->g == 0 && in_p->b == 0)
+											if (i == 3)
+												*out_p = PIXEL_RGBA_256{ 255, 0, 0, 255 };
+											else {}
+										else
+										{
+											if (in_p->r == 255 && in_p->g == 0 && in_p->b == 0)
+											{
+												if (i == 2 || i == 3)
+												{
+													*out_p = PIXEL_RGBA_256{ 255, 0, 0, 255 };
+													//second gen
+  												}
+												else
+												{
+													*out_p = PIXEL_RGBA_256{ 0, 0, 0, 255 };
+												}
+ 											}
+ 										}
+
+										////////////////////////////////////////////////////////////
+										if(enable_2_gen)
+										if (in_p->r == 255 && in_p->g == 0 && in_p->b == 0)
+											if (i == lab_gen.birn_min)
+												*out_p = PIXEL_RGBA_256{ 0, 255, 0, 255 };
+											else {}
+										else
+										{
+											if (in_p->r == 0 && in_p->g == 255 && in_p->b == 0)
+											{
+												if (i >= lab_gen.live_min || i < lab_gen.dead_min)
+												{
+													*out_p = PIXEL_RGBA_256{ 0, 255, 0, 255 };
+													//second gen
+												}
+												else
+												{
+													*out_p = PIXEL_RGBA_256{ 0, 0, 0, 255 };
+												}
+											}
+										}
+
+										////////////////////////////////////////////////////////////
+										if (enable_3_gen || (enable_3_gen && !enable_1_gen))
+										if (in_p->r == 255 || in_p->g == 255 )
+											if (i == nab_gen.birn_min)
+												*out_p = PIXEL_RGBA_256{ 0, 0, 255, 255 };
+											else {}
+										else
+										{
+											if (in_p->r == 0 && in_p->g == 0 && in_p->b == 255)
+											{
+												if (i >= nab_gen.live_min || i < nab_gen.dead_min)
+												{
+													*out_p = PIXEL_RGBA_256{ 0, 0, 255, 255 };
+													//second gen
+												}
+												else
+												{
+													*out_p = PIXEL_RGBA_256{ 0, 0, 255, 255 };
+												}
+											}
+										}
+
+
+
+									}
+
+									ram_world = temp_buff;
+								}
+
+								gpu_texture.UpdateData(ram_world);
+								//log::info << str::format::insert("gl update texture", ST.GetTimeReal());
+
+
+
+								
+
+
+							}
+							ImGui::EndGroup();
+
+							//drawer->AddCallback(rnear, &uid_font);
+							//ImGui::Image((ImTextureID)(intptr_t)uid_font, {(ImGui::GetContentRegionAvail().x / 3), ImGui::GetContentRegionAvail().y});
+							//
+							//ImGui::SameLine();
+							//drawer->AddCallback(lenear, &uid_font);
+							//ImGui::Image((ImTextureID)(intptr_t)uid_font, { (ImGui::GetContentRegionAvail().x / 2), ImGui::GetContentRegionAvail().y });
+							//
+							//ImGui::SameLine();
+							//drawer->AddCallback(fanear, &uid_font);
+							//ImGui::Image((ImTextureID)(intptr_t)uid_font, { (ImGui::GetContentRegionAvail().x / 1), ImGui::GetContentRegionAvail().y });
+
+
+
+
+							// Restore state
+							//glBindTexture(GL_TEXTURE_2D, last_texture);
+						}
+						ImGui::End();
+ 					}
+					//----------------------------------------------------------------------// Weather
+  					if (WND_WEATHER)
+					{
+  						ImGui::SetNextWindowPos(ImVec2(-8, -34), ImGuiCond_Always);
+ 						ImGui::SetNextWindowSize(ImVec2(1600, 1600), ImGuiCond_Always);
+ 						ImGui::SetNextWindowBgAlpha(1.0f);
+ 						if (ImGui::Begin("Weather", &WND_WEATHER, ImGuiWindowFlags_NoMove))
+ 						{
+ 							static gl_texture gpu_image;
+ 							static BITMAP_RGBA image(128, 128, { 255,0,0,255 });
+ 
+							static gl_texture gpu_image_roller;
+							static gl_texture gpu_image_rollerq;
+
+ 							MakeOnce
+ 							{
+ 								//lodepng_write_image(image,"assets/weather_testa.png");
+ 								image = lodepng_read_image("assets/weather_test");
+ 								gpu_image.ReInit(image.w, image.h, image.raw_data(0, 0));
+
+								BITMAP_RGBA temp = lodepng_read_image("assets/roller");
+								gpu_image_roller.ReInit(temp.w, temp.h, temp.raw_data(0, 0));
+								temp = lodepng_read_image("assets/rollerq");
+								gpu_image_rollerq.ReInit(temp.w, temp.h, temp.raw_data(0, 0));
+ 							}
+ 
+ 							FLOAT2 win_pos = ImGui::GetWindowPos();
+ 							FLOAT2 cur_pos = ImGui::GetCursorPos();
+ 							FLOAT2 pos = win_pos + cur_pos;
+ 
+ 							ImGuiIO&		io = ImGui::GetIO();
+ 							ImGuiContext*	context = ImGui::GetCurrentContext();
+ 							ImGuiWindow*	window = context->CurrentWindow;
+ 							ImDrawList*		drawer = window->DrawList;
+ 							ImGuiStyle&		style = ImGui::GetStyle();
+ 
+ 							auto stile_tems_padding = style.WindowPadding;
+ 							style.WindowPadding = FLOAT2(0, 0);
+ 							ImGui::PushClipRect(FLOAT2(0, 0), FLOAT2(2000, 2000), false);
+							{
+ 								ImGui::Image((ImTextureID)(intptr_t)gpu_image.uid_tex, { 1280,780 });
+
+								static cv_tests::cacher ReaderThread;
+
+								enum
+								{
+									VD_POS_W = 192,
+									VD_POS_H = 217 + 7,
+									VD_SIZE_W = 780,
+									VD_SIZE_H = 540,
+									WIN_OFF_W = -8,
+									WIN_OFF_H = -34,
+
+									ROLLER_LPOS = 338 + 14,
+									ROLLER_RPOS = 943 + 14,
+									ROLLER_VPOS = 159 + 68,
+									ROLLER_SIZE_W = 16,
+									ROLLER_SIZE_H = 19,
+
+									ROLLERQ_POSL = 337 + 14 - 7,
+									ROLLERQ_POSR = 942 + 14 - 7,
+									ROLLERQ_VOSR = 166 + 68 - 35,
+								};
+								enum select_vid
+								{
+									_no_select,
+									_rain,
+									_temp,
+									_wind,
+									_press,
+									_vid_end,
+								};
+
+								static select_vid vid = _no_select;
+								static int curent_frame = 0;
+								static int last_frame = 0;
+
+
+								MakeOnce
+								{
+									cv_tests::vd_rain.open("assets/vd/osadki");
+									cv_tests::vd_temp.open("assets/vd/temp");
+									cv_tests::vd_wind.open("assets/vd/wind");
+									cv_tests::vd_press.open("assets/vd/press");
+								}
+
+
+								struct sincro_amin
+								{
+ 									void start()
+									{
+										anim_st.SetStart();
+										time = 0;
+										dest_time = math::RandomFastReal(3.5, 9);
+
+										tangle = true;
+									}
+									bool play_anim_if(ImDrawList* drawer)
+									{
+										time += anim_st.GetRoundTime() / 1000.0f;
+
+										log::info << to_string(time);
+
+										if (time < dest_time)
+										{
+											ImGuiContext*	context = ImGui::GetCurrentContext();
+											ImGuiWindow*	window = context->CurrentWindow;
+											ImDrawList*		drawer = window->DrawList;
+
+
+											float delta = time / dest_time;
+
+											drawer->AddRectFilled(FLOAT2{ VD_POS_W , VD_POS_H } +FLOAT2{ 1,1 } +
+												FLOAT2{ WIN_OFF_W, WIN_OFF_H },
+												FLOAT2{ VD_POS_W,  VD_POS_H } +
+												FLOAT2{ VD_SIZE_W, VD_SIZE_H } -FLOAT2{ 1,1 } +
+												FLOAT2{ WIN_OFF_W, WIN_OFF_H }, ImGui::ColorConvertFloat4ToU32(FLOAT4(0.95, 0.95, 0.95, 1.0f)));
+
+											FLOAT2 cirkle_pos = {558,420};
+											drawer->AddCircle(cirkle_pos, 40, ImGui::ColorConvertFloat4ToU32(FLOAT4(0.0, 0.0, 0.66, 0.66)),30, 2.0f);
+
+											static SuperTimer st;
+											MakeOnce
+											{
+												st.SetStart();
+											}
+											static float esc = 0;
+											esc += st.GetRoundTime();
+
+											static float anlage = 0;
+ 											if (anlage > 360) anlage -= 360;
+											if (esc > 10.f)
+											{
+												esc -= 0;
+												anlage -= 0.2;
+ 											}
+
+  
+											drawer->AddCircleFilled(cirkle_pos, delta * 40, ImGui::ColorConvertFloat4ToU32(FLOAT4(0.0, 0.0, 0.66, 0.33)), 30);
+
+											//drawer->AddTriangleFilled(cirkle_pos,
+											//	cirkle_pos+FLOAT2{
+											//		float(40 * sin((anlage)			* math::math_constants::PI / 180.f) ), 
+											//		float(40 * cos((anlage)			* math::math_constants::PI / 180.f) )},
+											//	cirkle_pos+FLOAT2{ 
+											//		float(40 * sin((anlage + 45.)	* math::math_constants::PI / 180.f) ), 
+											//		float(40 * cos((anlage + 45.)	* math::math_constants::PI / 180.f) )},
+											//	ImGui::ColorConvertFloat4ToU32(FLOAT4(0.0, 0.0, 0.66, 0.66)));
+
+
+											if (delta < 0.3)
+											{
+												ImGui::SetCursorPos({ 500, 506 });
+												ImGui::TextColored(FLOAT4(0.3, 0.3, 0.3, 0.99), inUTF8("Поиск в архиве..."));
+											}
+											if (delta > 0.3 && delta < 0.6)
+											{
+												ImGui::SetCursorPos({ 500, 506 });
+												ImGui::TextColored(FLOAT4(0.3, 0.3, 0.3, 0.99), inUTF8("Синхронизация..."));
+											}
+											if (delta > 0.6)
+											{
+												ImGui::SetCursorPos({ 500, 506 });
+												ImGui::TextColored(FLOAT4(0.3, 0.3, 0.3, 0.99), inUTF8("    Подготовка..."));
+											}
+										}
+
+										if(time < dest_time)
+											return true;
+// 										if (tangle == true && time > dest_time)
+// 										{
+// 											tangle = false;
+// 											return true;
+// 										}
+										return false;
+									}
+
+									SuperTimer anim_st;
+									float time = 4;
+									float dest_time = 3;
+
+									bool tangle = false;
+								};
+
+								static sincro_amin sincro_animate;
+
+								 
+
+ 								ImGui::SetCursorPos({57,157}); if (ImGui::Button("##temp", FLOAT2{ 60,60 }))
+								{
+									ReaderThread.CaptureSourse(&cv_tests::vd_temp);
+									ReaderThread.GoToFrame(0);
+									vid = _temp;
+									sincro_animate.start();
+								}
+								ImGui::SetCursorPos({ 57,233 }); if (ImGui::Button("##rain", FLOAT2{ 60,60 }))
+								{
+									ReaderThread.CaptureSourse(&cv_tests::vd_rain);
+									ReaderThread.GoToFrame(0);
+									vid = _rain;
+									ReaderThread.vd_frame_count = 1000000;
+									sincro_animate.start(); 
+								}
+								ImGui::SetCursorPos({ 57,303 }); if (ImGui::Button("##wind", FLOAT2{ 60,60 }))
+								{
+									ReaderThread.CaptureSourse(&cv_tests::vd_wind);
+									ReaderThread.GoToFrame(0);
+									vid = _wind;
+									sincro_animate.start(); 
+								}
+								ImGui::SetCursorPos({ 57, 379 }); if (ImGui::Button("##press", FLOAT2{ 60,60 }))
+								{
+ 									ReaderThread.CaptureSourse(&cv_tests::vd_press);
+									ReaderThread.GoToFrame(0);
+									vid = _press;
+									sincro_animate.start();
+ 								}
+ 
+
+ 								//////////////////////////////////////////////////////////////////////////
+
+								static BITMAP_RGBA ram_vd_bitmap(780, 540, { 255,255,255,0 });
+								static gl_texture  gpu_texture;
+
+
+								static SuperTimer ST;
+								static float timer = 0;
+								timer += ST.GetRoundTime();
+
+								if (timer > (1000. / 16.) && ReaderThread.GetFramesReady() > 0)
+								{
+									timer = 0;
+
+									auto frame_getter = ReaderThread.GetNextFrame();
+
+									if (frame_getter.IsFailed())
+									{
+										//vd_status_msg = frame_getter.GetErrorMsg();
+									}
+									else
+									{
+										//----------------------------------------------------// copy data from mat to buffer
+										auto frame = frame_getter.GetValue();
+
+										int w_size = 780;
+										int h_size = 540;
+
+										ForArray(y, h_size)
+										ForArray(x, w_size)
+										{
+											uint8_t* sourse = frame.ptr(y, 0);
+											PIXEL_RGBA_256* dest = ram_vd_bitmap.raw_data(x, y);
+
+											uint8_t r = *(sourse + x * 3 + 2);	// to gray
+											uint8_t g = *(sourse + x * 3 + 0);	// to gray
+											uint8_t b = *(sourse + x * 3 + 1);	// to gray
+											uint8_t c = (r + g + b) / 3;		// to gray
+
+											dest->r = r;
+											dest->b = g;
+											dest->g = b;
+											dest->a = 255;
+										}
+
+										//gpu_texture.UpdateData(ram_vd_bitmap);
+									}
+								}
+
+								gpu_texture.UpdateData(ram_vd_bitmap);
+
+								 
+
+								ImGui::SetCursorPos({ VD_POS_W,VD_POS_H });
+								ImGui::Image((ImTextureID)(intptr_t)gpu_texture.uid_tex, { 780, 540 });
+								ImGui::SetCursorPos({ VD_POS_W,VD_POS_H });
+								//ImGui::TextColored({ 255,0,0,255 }, str::format::insert("Frame/last {} - {}", ReaderThread.vd_curent_frame, ReaderThread.vd_frame_count).c_str());
+								drawer->AddRect(FLOAT2{ VD_POS_W , VD_POS_H } +
+									FLOAT2{ WIN_OFF_W, WIN_OFF_H },
+									FLOAT2{ VD_POS_W,  VD_POS_H } +
+									FLOAT2{ VD_SIZE_W, VD_SIZE_H } +
+									FLOAT2{ WIN_OFF_W, WIN_OFF_H }, ImGui::ColorConvertFloat4ToU32(FLOAT4(0, 0, 0.33, 0.33)));
+
+								bool tangle = sincro_animate.play_anim_if(drawer);
+								if (tangle)
+								{
+									ReaderThread.GoToFrame(0);
+								}
+
+								float roller_value_go = (float)ReaderThread.vd_curent_frame / (ReaderThread.vd_frame_count == 0 ? 1 : ReaderThread.vd_frame_count) ;
+								
+								static float roller_value = 0;
+
+								roller_value += (roller_value_go - roller_value) / 60.;
+
+
+								if (roller_value < 0) roller_value = 0;
+								if (roller_value > 0.99999) roller_value = 0.99999;
+								
+
+								float roller_lpos = ROLLER_LPOS + WIN_OFF_W;
+								float roller_rpos = ROLLER_RPOS + WIN_OFF_W;
+								float roller_y		= ROLLER_VPOS + WIN_OFF_H;
+
+								float rollerq_lpos = ROLLERQ_POSL; + WIN_OFF_W;
+								float rollerq_rpos = ROLLERQ_POSR; + WIN_OFF_W;
+								float rollerq_y	   = ROLLERQ_VOSR; + WIN_OFF_H;
+
+								FLOAT2 roller_pos	= { roller_lpos + (roller_rpos - roller_lpos) * roller_value, roller_y };
+								FLOAT2 roller_size	= { ROLLER_SIZE_W,ROLLER_SIZE_H };
+								FLOAT2 rollerq_pos	= { rollerq_lpos, rollerq_y };
+								FLOAT2 rollerq_size	= { (rollerq_rpos - rollerq_lpos) * roller_value, 3 };
+
+
+								ImGui::SetCursorPos(roller_pos);
+								ImGui::Image((ImTextureID)(intptr_t)gpu_image_roller.uid_tex, roller_size);
+								ImGui::SetCursorPos(rollerq_pos);
+								ImGui::Image((ImTextureID)(intptr_t)gpu_image_rollerq.uid_tex, rollerq_size);
+ 								/////////////////////////////////////////////////////////////////////////////////////////////////////////////weather end
+								static const int anim_count = 3;
+
+								struct rain_data
+								{
+									void restart()
+									{
+										if (math::Random(0, 1) == 1)
+											dummy = false;
+										else
+											dummy = true;
+
+										points[0] = math::RandomFast32(40, 200 - 40);
+
+										ForArray(i, 65)
+											points[i + 1] = points[i] + math::RandomFast32(-6, 6);
+
+										float temp = (points[0] + points[64]) / 2.0f;
+										points[0] = temp;
+										points[64] = temp;
+
+										centerW = math::RandomFast32(-30, 780);
+										centerH = math::RandomFast32(-30, 540);
+										centerWGo = centerW + math::RandomFast32(-60, 60);
+										centerHGo = centerH + math::RandomFast32(-60, 60);
+
+										anim_len = math::RandomFastReal(5, 10);
+										anim_esc = -1.;
+
+										log::info << str::format::insert("New rain in pos:{} {}", centerW, centerH);
+									}
+
+									bool dummy = true;
+
+									float points[64 + 2];
+									float centerW;
+									float centerH;
+									float centerWGo;
+									float centerHGo;
+
+
+									float anim_len = 6.f; // - 1.0f sec
+									float anim_esc = 5.f; // - 1.0f sec
+								};
+								static rain_data rains[anim_count];
+								static SuperTimer STrain;
+								static float time_esc = 0;
+
+								ImGui::PushClipRect( 
+									FLOAT2{ VD_POS_W , VD_POS_H } +
+									FLOAT2{ WIN_OFF_W, WIN_OFF_H},
+									FLOAT2{ VD_POS_W,  VD_POS_H } +
+									FLOAT2{ VD_SIZE_W, VD_SIZE_H } +
+									FLOAT2{ WIN_OFF_W, WIN_OFF_H}, false);
+								switch (vid)
+								{
+								case _no_select:
+									break;
+								case _rain:
+
+									if (sincro_animate.time > sincro_animate.dest_time)
+									{
+ 										time_esc += STrain.GetRoundTime() / 1000 / 2;
+
+										ForArray(i, anim_count)
+										{
+											rains[i].anim_esc += time_esc;
+
+											if (rains[i].anim_esc > rains[i].anim_len)
+											{
+												rains[i].restart();
+											}
+
+											//rains[i].centerW += (rains[i].centerWGo - rains[i].centerW) / 1000.;
+											//rains[i].centerH += (rains[i].centerHGo - rains[i].centerH) / 1000.;
+										
+											FLOAT2 off = FLOAT2(VD_POS_W, VD_POS_H);
+											FLOAT2 pc = off + FLOAT2{ rains[i].centerW,rains[i].centerH };
+										 
+											if (!rains[i].dummy)
+											{
+
+												ForArray(j, 64)
+												{
+													rains[i].points[j] += math::RandomFastReal(-0.03,0.03);
+												}
+												ForArray(j, 64)
+												{
+													float trans = 0.30;
+													float q = (float)rains[i].anim_esc / rains[i].anim_len;
+
+													if (q < 0.30) trans = q;
+													if (q > 0.70) trans = 0.30 - (q - 0.70);
+
+
+													FLOAT2 p1(
+														((float)rains[i].points[j] * 1.2* (1 + trans)) * sin((j * (360.f / 64.f)) * math::math_constants::PI / 180.f),
+														((float)rains[i].points[j] * 1.2* (1 + trans)) * cos((j * (360.f / 64.f)) * math::math_constants::PI / 180.f)
+													);
+													FLOAT2 p2(
+														((float)rains[i].points[j + 1] * 1.2* (1 + trans)) * sin((j + 1) * (360.f / 64.f) * math::math_constants::PI / 180.f),
+														((float)rains[i].points[j + 1] * 1.2* (1 + trans)) * cos((j + 1) * (360.f / 64.f) * math::math_constants::PI / 180.f)
+													);
+
+
+													style.AntiAliasedFill = false;
+													drawer->AddTriangleFilled(pc, pc + p1, pc + p2, ImGui::ColorConvertFloat4ToU32(FLOAT4(0, 0, 0.8, trans)));
+												}
+
+											}
+   										 
+ 										}
+
+										time_esc = 0;
+									}
+									break;
+								case _temp:
+									break;
+								case _wind:
+									break;
+								case _press:
+									break;
+								case _vid_end:
+									break;
+								default:
+									break;
+								}
+
+								 
+								/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+ 							}
+ 							ImGui::PopClipRect();
+ 							style.WindowPadding = stile_tems_padding;
+ 
+ 
+							//drawer->AddCircleFilled(ImGui::GetIO().MousePos, 6, ImGui::ColorConvertFloat4ToU32({ 0.5, 0, 0, 0.5 }));
+							 
+							enum 
+							{
+								ui_cam_archive_pos_w = 1000,
+								ui_cam_archive_pos_h = 322,
+								ui_cam_archive_pos_wv = 1000 + 266,
+								ui_cam_archive_pos_wh = 322 + 438,
+								WIN_OFF_W = -8,
+								WIN_OFF_H = -34,
+							};
+							 
+							FLOAT2 mpos = ImGui::GetIO().MousePos;
+
+							if (math::InRange(ImGui::GetIO().MousePos.x, ui_cam_archive_pos_w, ui_cam_archive_pos_wv) &&
+								math::InRange(ImGui::GetIO().MousePos.y, ui_cam_archive_pos_h, ui_cam_archive_pos_wh))
+							{
+								drawer->AddRectFilled(
+									FLOAT2{ ui_cam_archive_pos_w , ui_cam_archive_pos_h },//+	FLOAT2{ WIN_OFF_W, WIN_OFF_H },
+									FLOAT2{ ui_cam_archive_pos_wv,  ui_cam_archive_pos_wh },// + FLOAT2{ WIN_OFF_W, WIN_OFF_H }, 
+									ImGui::ColorConvertFloat4ToU32(FLOAT4(0.66, 0, 0, 0.33)));
+								drawer->AddRect(
+									FLOAT2{ ui_cam_archive_pos_w , ui_cam_archive_pos_h } ,//+	FLOAT2{ WIN_OFF_W, WIN_OFF_H },
+									FLOAT2{ ui_cam_archive_pos_wv,  ui_cam_archive_pos_wh },// + FLOAT2{ WIN_OFF_W, WIN_OFF_H }, 
+									ImGui::ColorConvertFloat4ToU32(FLOAT4(0.66, 0, 0, 0.66)));
+							
+								ImGui::SetCursorPos(FLOAT2{ 1080,556 } -FLOAT2{ WIN_OFF_W, WIN_OFF_H });
+								ImGui::TextColored(FLOAT4(0.99, 0, 0, 0.99), "DEMO MODE");
+								//drawer->AddText({ 1180,550 }, FLOAT4(0.66, 0, 0, 0.66), string("DEMO MODE").c_str());
+							}
+
+
+ 						}
+ 						ImGui::End();
+					}
+				}
+
+  				ImGui::Render();
+
+			}// ImGui CPU work end
+
+  			igp.ImplHardDraw();
+
+		}// ImGui CPU frame end
+
+ 	 
+		// test
+		// 4 threads work ultra fast, 8 times faster than 1 thread
+		// mb good cache work
+		if (false)
+ 		{
+			graphics::bitmap_t<PIXEL_RGBA_256> map1(6000, 6000, { 255,0,0,255 });
+			graphics::bitmap_t<PIXEL_RGBA_256> map2(6000, 6000, { 255,0,0,255 });
+			graphics::bitmap_t<PIXEL_RGBA_256> map3(6000, 6000, { 255,0,0,255 });
+			graphics::bitmap_t<PIXEL_RGBA_256> map4(6000, 6000, { 255,0,0,255 });
+			graphics::bitmap_t<PIXEL_RGBA_256> map5(6000, 6000, { 255,0,0,255 });
+			graphics::bitmap_t<PIXEL_RGBA_256> orig(6000, 6000, { 255,255,255,255 });
+			graphics::bitmap_t<PIXEL_RGBA_256> test(6000, 6000, { 255,255,255,255 });
+
+			static SuperTimer ST;
+			static auto lamb = [](PIXEL_RGBA_256& p, const INT2& pos) 
+			{
+				p = 
+				{ 
+					uint8_t(pos.x), 
+					uint8_t(pos.y), 
+					uint8_t(pos.x ^ pos.y),
+					uint8_t(255) 
+				}; 
+			};
+
+			ST.SetStart();
+ 			map1.for_each(lamb, 4);
+ 			ST.SetEnd();
+			log::info << str::format::insert("for_each: threads[4] time: {}", ST.GetTimeReal() );
+
+			ST.SetStart();
+			map2.for_each(lamb, 2);
+			ST.SetEnd();
+			log::info << str::format::insert("for_each: threads[2] time: {}", ST.GetTimeReal());
+
+			ST.SetStart();
+			map3.for_each(lamb, 1);
+			ST.SetEnd();
+			log::info << str::format::insert("for_each: threads[1] time: {}", ST.GetTimeReal());
+
+			ST.SetStart();
+ 			ForArray(w, map1.w)
+			ForArray(h, map1.h)
+ 			{
+				lamb(*map4.raw_data(w, h), { (int)w,(int)h });
+				//*map.raw_data(w,h) = { 255,255,255,255 };
+			}
+			ST.SetEnd();
+			log::info << str::format::insert("lambda call time: {}", ST.GetTimeReal());
+
+			ST.SetStart();
+			ForArray(w, map1.w)
+			ForArray(h, map1.h)
+			{
+				*map5.raw_data(w, h) = { (uint8_t)w, (uint8_t)h, (uint8_t)(w ^ h), (uint8_t)255 };
+			};
+ 			ST.SetEnd();
+			log::info << str::format::insert("in_code time: {}", ST.GetTimeReal());
+
+			log::info << "___________________________________________________________________";
+  			ST.SetStart();
+ 			log::info << str::format::insert("(orig == orig): {} time : {}", (orig == orig), ST.GetRoundTime() );
+
+			log::info << str::format::insert("(map1 == orig): {} RoundTime : {}", (map1 == map1), ST.GetRoundTime());
+			log::info << str::format::insert("(map2 == orig): {} RoundTime : {}", (map2 == map3), ST.GetRoundTime());
+			log::info << str::format::insert("(map3 == orig): {} RoundTime : {}", (map3 == map3), ST.GetRoundTime());
+			log::info << str::format::insert("(map4 == orig): {} RoundTime : {}", (map4 == orig), ST.GetRoundTime());
+			log::info << str::format::insert("(map5 == orig): {} RoundTime : {}", (map5 == orig), ST.GetRoundTime());
+			log::info << str::format::insert("(test == orig): {} RoundTime : {}", (test == orig), ST.GetRoundTime());
+ 
+			 
+		}
+
+
+
+
+		glfwMakeContextCurrent(glfw_window);
+		glfwSwapBuffers(glfw_window);
+		gpu_drawer::PresentRender();
+
+ 		return;
+	}
+
+
+public:
+	os::Window *my_window;//for dubug
+
+
+};
+
+
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
+//int main(int argc, char **argv)
+{
+  	//	setlocale(LC_ALL, "Russian");	// for wcstombs and e.t. 
+	// 	SetConsoleOutputCP(65001);		// utf8 encoding in console
+	// 	SetConsoleCP(65001);
+ 
+	os_api::AttachCrushHandler();
+ 	
+	
+	os::Console console;
+	os::Window	window;
+
+	MyInputReader input;
+	Render		render;
+
+ 	//---------------------------------------------// Console
+  	console.Init(ConsoleState());
+	console.Show();
+	console.RedirectIO();
+
+	log::debug << GetBuildInfo();
+  	
+	//---------------------------------------------// Window
+ 	os::WindowState WS;
+
+	WS.SpawnPos = WindowSpawnPos::CenterOfMainMonitor; 
+	WS.Wight	= 1280;
+	WS.Height	= 780;
+	WS.Resizble = false;
+
+	window.Init(WS);
+	window.ShowHide();
+	window.AttachInputHandler(&input);
+
+	//---------------------------------------------// Render
+ 	const RenderOptions& RO = const RenderOptions&();
+
+	RO.WindowHwnd			= window.GetWindowId();
+	RO.RenderCanvasHeight	= window.GetHeight();
+	RO.RenderCanvasWight	= window.GetWidth();
+
+	RO.AAMode				= AntiAliasingMode::NoAA;
+	RO.MSAA_SamplerCount	= 1;
+	RO.MSAA_QualityLevel	= 0;
+	RO.AnisotropicQuality	= 8;
+
+	RO.single_thread_gpu_api_use_promise = true;
+	RO.disable_gpu_task_timeout = false;
+
+	log::info << "Init render...";
+
+	render.my_window = &window; // for debug, mbdell
+ 	render.Init(RO);
+	//---------------------------------------------// start... 
+  
+	log::info << "First test draw...";
+	render.Paint();  
+
+	while (window.IsExit() == false)
+	{
+		window.HandleMessages();
+
+		if (window.IsResized())
+			render.SetSize(window.GetWidth(), window.GetHeight());
+
+		render.NotifyFocus(window.IsActive());
+		render.Paint();
+	}
+	window.Close();
+	render.Release();
+
+	std::this_thread::sleep_for(std::chrono::seconds(3));
+	return 0;
+}
+
+

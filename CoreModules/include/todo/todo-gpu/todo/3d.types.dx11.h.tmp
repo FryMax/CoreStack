@@ -1,0 +1,649 @@
+#pragma once
+
+#include "globals.h"
+#include "3d.types.h"
+
+#pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "d3dcompiler.lib")
+#pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dxguid.lib")
+
+
+ 
+#include <d3d11_1.h>
+//#include <d3d12.h>
+#include <d3dcompiler.h>
+
+#include <dxgi1_5.h>
+
+#include <Dbghelp.h>
+
+#include <DirectXMath.h>
+#include <DirectXColors.h>
+#include <DirectXCollision.h>
+
+//////////////////////////////////////////////////////////////////////////
+
+struct impl_adapter             {   IDXGIAdapter3           *pAdapter   = nullptr;  };
+struct impl_output              {   IDXGIOutput             *pOutput    = nullptr;  };
+struct impl_device              {   ID3D11Device1           *pDevice    = nullptr;
+                                    ID3D11DeviceContext1    *pContext   = nullptr;  }; 
+struct impl_swap_chain          {   IDXGISwapChain4         *pSwapchain = nullptr;  };
+
+struct impl_texture             {   ID3D11Texture2D         *pTexture   = nullptr;  };
+struct impl_buffer              {   ID3D11Buffer            *pBuffer    = nullptr;  };
+struct impl_render_target       {   ID3D11RenderTargetView  *pTarget    = nullptr;  };
+struct impl_depth_stencil       {   ID3D11DepthStencilView  *pDepth     = nullptr;  };
+
+struct impl_shader				{	ID3D11InputLayout*	pLayout	 = nullptr;
+									ID3D11VertexShader* pVshader = nullptr;  
+ 									ID3D11PixelShader*  pPshader = nullptr; };
+ 
+struct impl_shader_resourse     { ID3D11ShaderResourceView  *pView  = nullptr; };
+
+struct impl_sampler             { ID3D11SamplerState        *pState = nullptr; };
+struct impl_rasterizer          { ID3D11RasterizerState     *pState = nullptr; };
+struct impl_color_blender             { ID3D11BlendState          *pState = nullptr; };
+struct impl_topology            { D3D_PRIMITIVE_TOPOLOGY    *pState = nullptr; };
+
+//////////////////////////////////////////////////////////////////////////
+ 
+
+
+
+
+
+
+
+//////////////////////////////////////////////////////////////////////////
+class gpu_adapter : public v_adapter
+{
+private:
+    impl_adapter impl;
+protected:   
+
+    impl_adapter* api_get_adapter()
+    {
+        return &impl;
+    }
+    adapter_info  api_get_info()
+    {
+        adapter_info out;
+
+        DXGI_ADAPTER_DESC Desc;
+        impl.pAdapter->GetDesc(&Desc);
+
+        std::string gpu_card_name   = str::convert::wstring_to_string(Desc.Description);
+        std::string gpu_card_luid   = std::to_string(Desc.AdapterLuid.HighPart) + "x" + std::to_string(Desc.AdapterLuid.LowPart);
+        std::size_t GpuMemOwn       = (Desc.DedicatedVideoMemory  );//  / 1024 / 1024);	// Собственная память видеокарты без доступа цп
+        std::size_t GpuMemLended    = (Desc.DedicatedSystemMemory );//  / 1024 / 1024);	// Заимствованная видеокартой системная память без доступа цп
+        std::size_t GpuMemShared    = (Desc.SharedSystemMemory    );//  / 1024 / 1024);	// Общая системная память разделенная с видеокартой с доступом цп
+
+        out.description         = gpu_card_name;
+        out.vendor_id           = Desc.VendorId;
+        out.device_id           = Desc.DeviceId;
+        out.subsys_id           = Desc.SubSysId;
+        out.revision            = Desc.Revision;
+        out.dedicated_video_mem = GpuMemOwn;
+        out.dedicated_sys_mem   = GpuMemLended;
+        out.shared_system_mem   = GpuMemShared;
+        out.adapter_luid        = gpu_card_luid;
+
+        return out;
+    }
+ 
+
+    void ref_api_release() 
+    {
+        _RELEASE(impl.pAdapter);
+    }
+};
+class gpu_output : public v_output
+{
+private:
+    impl_output impl;
+protected:
+    impl_output*              api_get_output()
+    {
+        return &impl;
+    }
+    output_info               api_get_output_info()
+    {
+        output_info out;
+
+        DXGI_OUTPUT_DESC Desc;
+        impl.pOutput->GetDesc(&Desc);
+
+        float rotation = 0;
+        switch (Desc.Rotation)
+        {
+        case DXGI_MODE_ROTATION_UNSPECIFIED: rotation = -1;     break;
+        case DXGI_MODE_ROTATION_IDENTITY:    rotation = 0;      break;
+        case DXGI_MODE_ROTATION_ROTATE90:    rotation = 90;     break;
+        case DXGI_MODE_ROTATION_ROTATE180:   rotation = 180;    break;
+        case DXGI_MODE_ROTATION_ROTATE270:   rotation = 270;    break;
+        default:                             rotation = 0;      break;
+        }
+        
+        out.description          = str::convert::WcharToChar(Desc.DeviceName);
+        out.os_AttachedToDesktop = Desc.AttachedToDesktop;
+        out.os_Rotation          = rotation;
+        out.os_hMonitor          = new HMONITOR(Desc.Monitor);
+        out.os_Coord             = QUAD{
+            Desc.DesktopCoordinates.top,
+            Desc.DesktopCoordinates.left,
+            Desc.DesktopCoordinates.bottom,
+            Desc.DesktopCoordinates.right
+        };
+        
+        return out;
+    }
+    std::vector<output_mode>  api_get_output_modes() 
+    {
+        std::vector<output_mode> out;
+
+        RESULT OK;
+        UINT outputModesCount = 0;
+        DXGI_MODE_DESC* displayModeList = nullptr;
+
+        OK << impl.pOutput->GetDisplayModeList(DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_ENUM_MODES_INTERLACED, &outputModesCount, NULL);
+        displayModeList = new DXGI_MODE_DESC[outputModesCount];
+        OK << impl.pOutput->GetDisplayModeList(DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_ENUM_MODES_INTERLACED, &outputModesCount, displayModeList);
+
+        out.resize(outputModesCount);
+        ForArray(i, outputModesCount)
+        {
+            out[i] = output_mode{
+				displayModeList[i].Width,              
+				displayModeList[i].Height,
+				displayModeList[i].RefreshRate.Numerator,
+                displayModeList[i].RefreshRate.Denominator
+				//...
+             };
+        }
+
+        _DELETE_ARRAY(displayModeList);
+
+        return out;
+    }
+
+    void ref_api_release() 
+    {
+        _RELEASE(impl.pOutput);
+    }
+};
+class gpu_device : public v_device          
+{
+private:
+    impl_device impl;
+protected:
+    impl_device* api_get_device()
+    {
+        return &impl;
+    }
+
+    void api_release()
+    {
+        _RELEASE(impl.pDevice);
+        _RELEASE(impl.pContext);
+    }
+};
+class gpu_swap_chain : public v_swap_chain      
+{
+private:
+    impl_swap_chain impl;
+protected:
+    const impl_swap_chain* api_get_swap_chain()
+    {
+        return &impl;
+    }
+
+    void api_release()
+    {
+        _RELEASE(impl.pSwapchain);
+    }
+};
+
+class gpu_texture : public v_texture
+{
+private:
+    impl_texture impl;
+
+protected:
+
+    impl_texture* api_get_impl() 
+    {
+        return &impl;
+    }
+    texture_state api_get_state()
+    {
+        if (impl.pTexture == nullptr)
+        {
+             return texture_state{ false, 0, 0, tex_format::unknown, GpuAccess::unknown, 0, "" };
+        }
+
+        D3D11_TEXTURE2D_DESC Desc;
+        impl.pTexture->GetDesc(&Desc);
+
+		texture_state out;
+        out.inited      = true;
+        out.w           = Desc.Width;
+        out.h           = Desc.Height;
+        out.miplevels   = Desc.MipLevels;
+        
+        switch (Desc.CPUAccessFlags)
+        {
+        case 0:                                               out.cpu_access = GpuAccess::no_access;   break;
+        case D3D11_CPU_ACCESS_READ:                           out.cpu_access = GpuAccess::read;        break;
+        case D3D11_CPU_ACCESS_WRITE:                          out.cpu_access = GpuAccess::write;       break;
+        case D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE:  out.cpu_access = GpuAccess::read_write;  break;
+        default:                                              out.cpu_access = GpuAccess::unknown;     break;
+        }
+    
+        switch (Desc.Format)
+        {
+        case DXGI_FORMAT_UNKNOWN:           out.format = tex_format::unknown;           break;
+        case DXGI_FORMAT_R8G8B8A8_UNORM:    out.format = tex_format::R8G8B8A8_UNORM;    break;
+        default:                            out.format = tex_format::unknown;           break;
+        }
+
+        //    Desc.ArraySize
+        //    Desc.BindFlags
+        //    Desc.CPUAccessFlags
+        //    Desc.Format
+        //    Desc.MiscFlags
+        //    Desc.SampleDesc
+        //    Desc.Usage
+
+        return out;
+    }
+ 
+    bool api_create             (size_t w, size_t h, int mip_levels = 0, GpuAccess cpu_access = GpuAccess::no_access)
+    {
+        D3D11_TEXTURE2D_DESC desc;
+
+        desc.Width      = w;
+        desc.Height     = h;
+        desc.MipLevels  = mip_levels;
+        //Use 1 MipLevels for a multisampled texture
+        //Use 0 MipLevels to generate a full set of subtextures
+
+		desc.ArraySize  = 1;
+        desc.Format     = DXGI_FORMAT_R8G8B8A8_UNORM;
+        desc.SampleDesc = {1,0};
+        desc.Usage      = D3D11_USAGE_DEFAULT;
+
+        if (cpu_access == GpuAccess::no_access)   desc.Usage = D3D11_USAGE_DEFAULT;
+        if (cpu_access == GpuAccess::write)       desc.Usage = D3D11_USAGE_DYNAMIC;
+        if (cpu_access == GpuAccess::read)        desc.Usage = D3D11_USAGE_STAGING;
+        if (cpu_access == GpuAccess::read_write)  desc.Usage = D3D11_USAGE_STAGING;
+        
+        desc.BindFlags      = D3D11_BIND_SHADER_RESOURCE;
+        desc.CPUAccessFlags = 0;
+
+        if (cpu_access == GpuAccess::no_access)   desc.CPUAccessFlags = 0;
+        if (cpu_access == GpuAccess::write)       desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        if (cpu_access == GpuAccess::read)        desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        if (cpu_access == GpuAccess::read_write)  desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE | D3D11_CPU_ACCESS_READ;
+        
+        desc.MiscFlags = 0;
+ 
+        // D3D11_USAGE_DEFAULT    -   gpu RW  |           | UpdateSubresource recomended
+        // D3D11_USAGE_IMMUTABLE  -   gpu R   |           | Fill data in init
+        // D3D11_USAGE_DYNAMIC    -   gpu R   |  cpu  W   | Map and Unmap recomended
+        // D3D11_USAGE_STAGING    -   gpu RW  |  cpu RW   | Cant be part of pipeline
+
+        //
+        _RELEASE(impl.pTexture);
+        RESULT OK;
+        
+        OK << ref_api_get_my_device()->pDevice->CreateTexture2D(&desc, nullptr, &impl.pTexture);
+
+        return OK.IsSucceed();
+    }
+    bool api_create_from_file   (const fs::path& path)  { GetImpl()->uid(); return false; }
+    bool api_create_from_memory (void* pData)           { GetImpl()->uid(); return false; }
+    
+
+    
+    bool api_resize(size_t, size_t)                                         { GetImpl()->uid(); return false; }
+    bool api_copy_tex_all_to(impl_texture* target)                          
+    { 
+//         if (!target == nullptr)
+//             return false;
+//         if (!target->pTexture == nullptr)
+//             return false;
+//         if (!this->api_get_texture()->pTexture = nullptr)
+//             return false;
+        
+
+
+        //ref_get_device()->pContext->UpdateSubresource(, , , , , );
+        ref_api_get_my_device()->pContext->CopyResource(target->pTexture, this->api_get_impl()->pTexture);
+        
+        return true; 
+    }
+    bool api_copy_tex_sub_to(impl_texture* target, QUAD box1, QUAD box2)    
+    { 
+        UINT x;
+        UINT y;
+        UINT z;
+
+
+
+       // ref_get_device()->pContext->CopySubresourceRegion(target->pTexture,0 , , , , , , );
+
+            return false; 
+    }
+    
+    void api_release()
+    {
+        _RELEASE(impl.pTexture);
+    }
+ 
+
+};
+class gpu_buffer : public v_buffer 
+{
+private:
+	impl_buffer impl;
+
+protected:
+
+	bool gpu_api_generate_buffer(GpuBufferType type, void* data, size_t arr_size, size_t obj_size, gpuAccess cpu_access)
+	{
+		D3D11_BUFFER_DESC	   desc = {};
+		D3D11_SUBRESOURCE_DATA Data = {};
+ 
+		if (type == GpuBufferType::undefined)			GetImpl()->uid();	//TODO
+ 		if (type == GpuBufferType::vertex_buffer)		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		if (type == GpuBufferType::index_buffer)		desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		if (type == GpuBufferType::constant_buffer)   desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		//if (type == ...)
+		//////////////////////////////////////////////////////////////////////////
+		if (cpu_access == GpuAccess::no_access)	desc.Usage = D3D11_USAGE_DEFAULT;
+		if (cpu_access == GpuAccess::write)		desc.Usage = D3D11_USAGE_DYNAMIC;
+		if (cpu_access == GpuAccess::read)			desc.Usage = D3D11_USAGE_STAGING;
+		if (cpu_access == GpuAccess::read_write)	desc.Usage = D3D11_USAGE_STAGING;
+		//////////////////////////////////////////////////////////////////////////
+		if (cpu_access == GpuAccess::no_access)	desc.CPUAccessFlags = 0;
+		if (cpu_access == GpuAccess::write)		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		if (cpu_access == GpuAccess::read)			desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		if (cpu_access == GpuAccess::read_write)	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE | D3D11_CPU_ACCESS_READ;
+
+		desc.ByteWidth			 = arr_size * obj_size;
+		desc.MiscFlags			 = 0;			//D3D11_RESOURCE_MISC_FLAG 
+		desc.StructureByteStride = obj_size;
+   
+		Data.pSysMem			= data;
+		Data.SysMemPitch		= 0;
+		Data.SysMemSlicePitch	= 0;
+ 
+ 		_RELEASE(impl.pBuffer);
+
+		RESULT OK;
+		OK << ref_api_get_my_device()->pDevice->CreateBuffer(&desc, &Data, &impl.pBuffer);
+		
+		return OK.IsSucceed();
+	}
+
+
+
+
+	impl_buffer* api_get_buffer() 
+	{
+		return &impl;
+	}
+
+	void api_release()
+	{
+		_RELEASE(impl.pBuffer);
+	}
+};
+class gpu_render_target   : public v_render_target   
+{
+private:
+    impl_render_target impl;
+protected:
+    impl_render_target* api_get_render_target()
+    {
+        return &impl;
+    }
+
+    void api_release()
+    {
+        _RELEASE(impl.pTarget);
+    }
+};
+class gpu_depth_stencil   : public v_depth_stencil   
+{
+private:
+    impl_depth_stencil impl;
+protected:
+    impl_depth_stencil* api_get_depth_stencil()
+    {
+        return &impl;
+    }
+
+    void api_release()
+    {
+        _RELEASE(impl.pDepth);
+    }
+};
+
+class gpu_shader : public v_shader          
+{
+private:
+	impl_shader impl;
+protected:
+
+	impl_shader* api_get_shader() override
+	{
+		return &impl;
+	}
+
+ 	bool api_compilite(GpuShaderType type, std::string asci_code, vert::vertex::Semantic sem) override
+	{
+		const std::string dx_11_shader_version = "5_0";
+		const UINT        dx_11_shader_flags	 = D3DCOMPILE_ENABLE_STRICTNESS
+#ifdef _DEBUG
+			| D3DCOMPILE_DEBUG
+			| D3DCOMPILE_WARNINGS_ARE_ERRORS;
+#else
+			| D3DCOMPILE_PREFER_FLOW_CONTROL
+			| D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR
+			| D3DCOMPILE_OPTIMIZATION_LEVEL3
+			| D3DCOMPILE_PARTIAL_PRECISION;
+#endif
+		//////////////////////////////////////////////////////////////////////////
+		std::string func_name = "main";
+		if (type == GpuShaderType::vertex_shader) func_name = "VS";
+		if (type == GpuShaderType::pixel_shader)  func_name = "PS";
+		//...
+
+  		std::string shader_version = "";
+		if (type == GpuShaderType::vertex_shader) shader_version = "vs_" + dx_11_shader_version;
+		if (type == GpuShaderType::pixel_shader)  shader_version = "ps_" + dx_11_shader_version;
+		//...
+		
+		UINT compilite_flags = dx_11_shader_flags;
+		
+
+ 		//////////////////////////////////////////////////////////////////////////
+		ID3DBlob* code	 = nullptr;
+		ID3DBlob* errors = nullptr;
+
+		RESULT OK;
+ 		OK << D3DCompile(asci_code.c_str(), asci_code.size(), NULL, NULL, NULL, func_name.c_str(), shader_version.c_str(), compilite_flags, 0, &code, &errors);
+
+		if (OK.IsFailed())
+		{
+			log::error << (string)(char*)errors->GetBufferPointer();
+			_RELEASE(errors);			
+			_RELEASE(code);
+ 			return false;
+		}
+ 		_RELEASE(errors);
+		//------------------------------------------------------------------// create shader  
+		switch (type)
+		{
+		case GpuShaderType::undefined:		{ OK << false; GetImpl()->uid(); }																							  	  break;
+ 		case GpuShaderType::vertex_shader:	{ OK << ref_api_get_my_device()->pDevice->CreateVertexShader(code->GetBufferPointer(), code->GetBufferSize(), NULL, &impl.pVshader); 	} break;
+ 		case GpuShaderType::pixel_shader:		{ OK << ref_api_get_my_device()->pDevice->CreatePixelShader (code->GetBufferPointer(), code->GetBufferSize(), NULL, &impl.pPshader); 	} break;
+ 		}																																									   
+
+		if (OK.IsFailed())
+		{
+			_RELEASE(code);
+			_RELEASE(impl.pVshader);
+			_RELEASE(impl.pPshader);
+			return false;
+		} 
+ 		//------------------------------------------------------------------// CREATE IL (only for vs shaders)
+		if (type == GpuShaderType::vertex_shader)
+		{
+ 			vert::vertex::Semantic semantic = sem;
+			std::vector<D3D11_INPUT_ELEMENT_DESC> input_desc;
+
+			ForArray(i, semantic.size())
+			{
+				const char* tag		= semantic[i].tag;
+				DXGI_FORMAT format	= DXGI_FORMAT_UNKNOWN;
+
+				switch (semantic[i].type)
+				{
+				case vert::vertex::vo_type::FLOAT_1:    format = DXGI_FORMAT_R32_FLOAT;			break;
+				case vert::vertex::vo_type::FLOAT_2:    format = DXGI_FORMAT_R32G32_FLOAT;		break;
+				case vert::vertex::vo_type::FLOAT_3:    format = DXGI_FORMAT_R32G32B32_FLOAT;	break;
+				case vert::vertex::vo_type::FLOAT_4:    format = DXGI_FORMAT_R32G32B32A32_FLOAT; break;
+				}
+				D3D11_INPUT_ELEMENT_DESC ied = { tag, 0, format, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+				input_desc.push_back(ied);
+ 			}
+
+			ID3D11InputLayout* layout = nullptr;
+			OK << ref_api_get_my_device()->pDevice->CreateInputLayout(&input_desc[0], input_desc.size(), code->GetBufferPointer(), code->GetBufferSize(), &impl.pLayout);
+			if (OK.IsFailed())
+			{
+				_RELEASE(code);
+				_RELEASE(impl.pVshader);
+				_RELEASE(impl.pPshader);
+				_RELEASE(impl.pLayout);
+				return false;
+			}
+
+ 		}
+		//------------------------------------------------------------------// CLEAR AND RETURN
+		_RELEASE(code);
+
+ 
+		return true;
+	}
+
+	void api_release()
+	{
+		_RELEASE(impl.pVshader);
+		_RELEASE(impl.pPshader);
+	}
+
+};
+class gpu_shader_resourse : public v_shader_resourse 
+{
+private:
+    impl_shader_resourse impl;
+protected:
+    impl_shader_resourse* api_get_shader_resourse()
+    {
+        return &impl;
+    }
+
+    bool api_get_create_shader_resourse(impl_texture* texture) 
+    {
+        D3D11_SHADER_RESOURCE_VIEW_DESC desc;
+        
+		desc.Format						= DXGI_FORMAT_R8G8B8A8_UNORM;
+		desc.ViewDimension				= (ref_api_get_my_rs()->MSAA_SamplerCount > 1) ? D3D11_SRV_DIMENSION_TEXTURE2DMS : D3D11_SRV_DIMENSION_TEXTURE2D;
+ 		desc.Texture2D.MostDetailedMip	= 0;
+		desc.Texture2D.MipLevels		= 1;
+ 
+
+		_RELEASE(impl.pView);
+
+		ref_api_get_my_device()->pDevice->CreateShaderResourceView(texture->pTexture, &desc, &impl.pView);
+
+        return true;
+    }
+
+    void api_release()
+    {
+        _RELEASE(impl.pView);
+    }
+
+};
+
+
+class gpu_sampler : public v_sampler         
+{
+private:
+    impl_sampler impl;
+protected:
+    impl_sampler* api_get_sampler()
+    {
+        return &impl;
+    }
+
+    void api_release()
+    {
+        _RELEASE(impl.pState);
+    }
+};
+class gpu_rasterizer : public v_rasterizer      
+{
+private:
+    impl_rasterizer impl;
+protected:
+    impl_rasterizer* api_get_rasterizer()
+    {
+        return &impl;
+    }
+
+    void api_release()
+    {
+        _RELEASE(impl.pState);
+    }
+};
+class gpu_color_blender : public v_color_blender         
+{
+private:
+    impl_color_blender impl;
+protected:
+    impl_color_blender* api_get_blender()
+    {
+        return &impl;
+    }
+
+    void api_release()
+    {
+        _RELEASE(impl.pState);
+    }
+};
+class gpu_topology : public v_topology        
+{
+private:
+    impl_topology impl;
+protected:
+    impl_topology* api_get_topology()
+    {
+        return &impl;
+    }
+
+    void api_release()
+    {
+        _DELETE(impl.pState);
+        //_RELEASE(impl.pState);
+    }
+};
+
+
+
+

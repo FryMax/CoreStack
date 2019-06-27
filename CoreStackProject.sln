@@ -1,0 +1,115 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28922.388
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CoreModules", "CoreModules\CoreModules.vcxproj", "{0021C462-BFC0-4E0C-9881-32954623BBC9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A} = {3484EDB0-52E2-4780-AE00-FC847EF3E89A}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CoreStack", "CoreStack\CoreStack.vcxproj", "{218F8006-DFE5-4458-A43B-5DF9337F1D6E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{0021C462-BFC0-4E0C-9881-32954623BBC9} = {0021C462-BFC0-4E0C-9881-32954623BBC9}
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A} = {3484EDB0-52E2-4780-AE00-FC847EF3E89A}
+		{73DDF5F9-BEDD-498B-BB7A-10E69CD412C3} = {73DDF5F9-BEDD-498B-BB7A-10E69CD412C3}
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "3rd party libs", "3rd party libs", "{A4DB6F3C-56AA-4E32-A4CD-0CAA7D01E8BB}"
+	ProjectSection(SolutionItems) = preProject
+		3rd-party\debug-trap.h = 3rd-party\debug-trap.h
+		3rd-party\stb_image_resize.h = 3rd-party\stb_image_resize.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "shared", "shared", "{BDE92FA2-63E3-4BE1-A9D8-98BCDCB3EFB8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CoreStackLight (sdl2 + gl3) x32", "CoreStackLight\CoreStackLight.vcxproj", "{4839F575-D98E-478C-BBCB-A7EF3A7D93F9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A} = {3484EDB0-52E2-4780-AE00-FC847EF3E89A}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CoreTest", "CoreTest\CoreTest.vcxproj", "{73DDF5F9-BEDD-498B-BB7A-10E69CD412C3}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A} = {3484EDB0-52E2-4780-AE00-FC847EF3E89A}
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "murmur-hash", "murmur-hash", "{14868223-FBDF-4C24-8C1D-2BAAB762DACB}"
+	ProjectSection(SolutionItems) = preProject
+		3rd-party\murmur3.cpp = 3rd-party\murmur3.cpp
+		3rd-party\murmur3.h = 3rd-party\murmur3.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sdk", "sdk", "{936F98B2-74DF-47F2-82A9-4FA9FD83FE8A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CoreLib", "CoreLib\CoreLib.vcxproj", "{3484EDB0-52E2-4780-AE00-FC847EF3E89A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "targets", "targets", "{DC107276-BB12-4EC0-BBC8-9BC5B153D7CE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0021C462-BFC0-4E0C-9881-32954623BBC9}.Debug|x64.ActiveCfg = Debug|x64
+		{0021C462-BFC0-4E0C-9881-32954623BBC9}.Debug|x64.Build.0 = Debug|x64
+		{0021C462-BFC0-4E0C-9881-32954623BBC9}.Debug|x86.ActiveCfg = Debug|Win32
+		{0021C462-BFC0-4E0C-9881-32954623BBC9}.Debug|x86.Build.0 = Debug|Win32
+		{0021C462-BFC0-4E0C-9881-32954623BBC9}.Release|x64.ActiveCfg = Release|x64
+		{0021C462-BFC0-4E0C-9881-32954623BBC9}.Release|x64.Build.0 = Release|x64
+		{0021C462-BFC0-4E0C-9881-32954623BBC9}.Release|x86.ActiveCfg = Release|Win32
+		{0021C462-BFC0-4E0C-9881-32954623BBC9}.Release|x86.Build.0 = Release|Win32
+		{218F8006-DFE5-4458-A43B-5DF9337F1D6E}.Debug|x64.ActiveCfg = Debug|x64
+		{218F8006-DFE5-4458-A43B-5DF9337F1D6E}.Debug|x64.Build.0 = Debug|x64
+		{218F8006-DFE5-4458-A43B-5DF9337F1D6E}.Debug|x86.ActiveCfg = Debug|Win32
+		{218F8006-DFE5-4458-A43B-5DF9337F1D6E}.Debug|x86.Build.0 = Debug|Win32
+		{218F8006-DFE5-4458-A43B-5DF9337F1D6E}.Release|x64.ActiveCfg = Release|x64
+		{218F8006-DFE5-4458-A43B-5DF9337F1D6E}.Release|x64.Build.0 = Release|x64
+		{218F8006-DFE5-4458-A43B-5DF9337F1D6E}.Release|x86.ActiveCfg = Release|Win32
+		{218F8006-DFE5-4458-A43B-5DF9337F1D6E}.Release|x86.Build.0 = Release|Win32
+		{4839F575-D98E-478C-BBCB-A7EF3A7D93F9}.Debug|x64.ActiveCfg = Debug|x64
+		{4839F575-D98E-478C-BBCB-A7EF3A7D93F9}.Debug|x64.Build.0 = Debug|x64
+		{4839F575-D98E-478C-BBCB-A7EF3A7D93F9}.Debug|x86.ActiveCfg = Debug|Win32
+		{4839F575-D98E-478C-BBCB-A7EF3A7D93F9}.Debug|x86.Build.0 = Debug|Win32
+		{4839F575-D98E-478C-BBCB-A7EF3A7D93F9}.Release|x64.ActiveCfg = Release|x64
+		{4839F575-D98E-478C-BBCB-A7EF3A7D93F9}.Release|x64.Build.0 = Release|x64
+		{4839F575-D98E-478C-BBCB-A7EF3A7D93F9}.Release|x86.ActiveCfg = Release|Win32
+		{4839F575-D98E-478C-BBCB-A7EF3A7D93F9}.Release|x86.Build.0 = Release|Win32
+		{73DDF5F9-BEDD-498B-BB7A-10E69CD412C3}.Debug|x64.ActiveCfg = Debug|x64
+		{73DDF5F9-BEDD-498B-BB7A-10E69CD412C3}.Debug|x64.Build.0 = Debug|x64
+		{73DDF5F9-BEDD-498B-BB7A-10E69CD412C3}.Debug|x86.ActiveCfg = Debug|Win32
+		{73DDF5F9-BEDD-498B-BB7A-10E69CD412C3}.Debug|x86.Build.0 = Debug|Win32
+		{73DDF5F9-BEDD-498B-BB7A-10E69CD412C3}.Release|x64.ActiveCfg = Release|x64
+		{73DDF5F9-BEDD-498B-BB7A-10E69CD412C3}.Release|x64.Build.0 = Release|x64
+		{73DDF5F9-BEDD-498B-BB7A-10E69CD412C3}.Release|x86.ActiveCfg = Release|Win32
+		{73DDF5F9-BEDD-498B-BB7A-10E69CD412C3}.Release|x86.Build.0 = Release|Win32
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A}.Debug|x64.ActiveCfg = Debug|x64
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A}.Debug|x64.Build.0 = Debug|x64
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A}.Debug|x86.ActiveCfg = Debug|Win32
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A}.Debug|x86.Build.0 = Debug|Win32
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A}.Release|x64.ActiveCfg = Release|x64
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A}.Release|x64.Build.0 = Release|x64
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A}.Release|x86.ActiveCfg = Release|Win32
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0021C462-BFC0-4E0C-9881-32954623BBC9} = {BDE92FA2-63E3-4BE1-A9D8-98BCDCB3EFB8}
+		{218F8006-DFE5-4458-A43B-5DF9337F1D6E} = {DC107276-BB12-4EC0-BBC8-9BC5B153D7CE}
+		{A4DB6F3C-56AA-4E32-A4CD-0CAA7D01E8BB} = {936F98B2-74DF-47F2-82A9-4FA9FD83FE8A}
+		{4839F575-D98E-478C-BBCB-A7EF3A7D93F9} = {DC107276-BB12-4EC0-BBC8-9BC5B153D7CE}
+		{73DDF5F9-BEDD-498B-BB7A-10E69CD412C3} = {BDE92FA2-63E3-4BE1-A9D8-98BCDCB3EFB8}
+		{14868223-FBDF-4C24-8C1D-2BAAB762DACB} = {A4DB6F3C-56AA-4E32-A4CD-0CAA7D01E8BB}
+		{3484EDB0-52E2-4780-AE00-FC847EF3E89A} = {BDE92FA2-63E3-4BE1-A9D8-98BCDCB3EFB8}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2F48E7C3-1512-446D-A513-7B13012256CF}
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,280 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{a8e4a1cf-beda-4a08-93e2-6a8ed8222010}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="old code">
+      <UniqueIdentifier>{bb0f8bf9-2cc0-4778-b0fd-3d89d049d5ca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref">
+      <UniqueIdentifier>{c0f0e5a1-33d6-4e65-a408-1a3e8f364cca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28src%29 imgui-code-souce">
+      <UniqueIdentifier>{b25c2746-b711-458b-9a53-fa5072aeeb4d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28src%29 imgui-code-souce\impl">
+      <UniqueIdentifier>{aba1d205-6e19-4cea-af67-73f707874bef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28src%29 lodepng-souce">
+      <UniqueIdentifier>{c1ddb6a0-a078-486f-bca0-841783762e65}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\misc">
+      <UniqueIdentifier>{d6006a70-367c-47f3-bbe5-b195bc03327d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28src%29 murmur">
+      <UniqueIdentifier>{e3f94e14-fd39-43af-b655-a0a5ac28efb4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28src%29 fmt">
+      <UniqueIdentifier>{9ad401ce-980b-46c1-aa21-932d2c01fbd5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 open-cl">
+      <UniqueIdentifier>{aa834ca9-2d51-4627-826b-82ab7f154bc0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 open-cl\x32">
+      <UniqueIdentifier>{f8aa9d26-6cc5-4364-bdd8-9ab153421f8f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 open-cl\x64">
+      <UniqueIdentifier>{3a61ecbd-4419-4fc7-bf1e-ffc467801cc6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28src%29 spdlog">
+      <UniqueIdentifier>{8af2295e-1641-4da5-a611-93b31b7a25d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="app">
+      <UniqueIdentifier>{d9a589ab-fa9c-46fc-958a-b8e284bf6889}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 glew &amp; glwf %28todell%29">
+      <UniqueIdentifier>{9fdc21bc-35f7-4e58-a857-d2d5ac790d4f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 glew &amp; glwf %28todell%29\x32 release">
+      <UniqueIdentifier>{8d2fd856-f52a-4ac1-bf92-2fcf9d9cbf57}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 glew &amp; glwf %28todell%29\x64 release">
+      <UniqueIdentifier>{b27e2e22-1a3c-42c6-b444-7cab1a206cb5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 open-cv %28x64 only%29">
+      <UniqueIdentifier>{4893079c-cf2e-4a92-a0bb-f702efc7197c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 open-cv %28x64 only%29\x64">
+      <UniqueIdentifier>{0289e39e-5658-44bc-b07a-6872d34bd6a8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 open-cv %28x64 only%29\x32">
+      <UniqueIdentifier>{ed7c31bc-d775-4c74-ac09-077aa845dc7d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 zlib %28disabled%29">
+      <UniqueIdentifier>{c4a28925-2fa5-40ff-b0cd-ae6195be90aa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 zlib %28disabled%29\x32">
+      <UniqueIdentifier>{ae2c952d-9d9c-4fca-9303-925ed72e6af3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 zlib %28disabled%29\x64">
+      <UniqueIdentifier>{4abcefdd-90ac-4673-bfdd-812c4fbab6e8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28src%29 CoreModules">
+      <UniqueIdentifier>{7f4a68d1-bcbf-49fc-8a8c-dd2a69965d6b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="view">
+      <UniqueIdentifier>{ba2e89ab-ebc3-4eee-b93f-2ae5612295b8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="view\old">
+      <UniqueIdentifier>{e5c75c0d-2eb3-482b-aec0-0eb7fb4bedb5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\3rd-party\imgui-1.70\imgui.cpp">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\imgui_demo.cpp">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\imgui_draw.cpp">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\imgui_widgets.cpp">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\examples\imgui_impl_dx11.cpp">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce\impl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\examples\imgui_impl_opengl2.cpp">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce\impl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\examples\imgui_impl_opengl3.cpp">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce\impl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\lodepng\lodepng_util.cpp">
+      <Filter>vs linker ref\%28src%29 lodepng-souce</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\lodepng\pngdetail.cpp">
+      <Filter>vs linker ref\%28src%29 lodepng-souce</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\lodepng\lodepng.cpp">
+      <Filter>vs linker ref\%28src%29 lodepng-souce</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\lodepng\lodepng_benchmark.cpp">
+      <Filter>vs linker ref\%28src%29 lodepng-souce</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\lodepng\lodepng_unittest.cpp">
+      <Filter>vs linker ref\%28src%29 lodepng-souce</Filter>
+    </ClCompile>
+    <ClCompile Include="source\main.cpp">
+      <Filter>app</Filter>
+    </ClCompile>
+    <ClCompile Include="source\cv_main.cpp.tmp">
+      <Filter>old code</Filter>
+    </ClCompile>
+    <ClCompile Include="source\weath.cpp.tmp">
+      <Filter>old code</Filter>
+    </ClCompile>
+    <ClCompile Include="source\weather.cpp.tmp">
+      <Filter>old code</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\murmur3.cpp">
+      <Filter>vs linker ref\%28src%29 murmur</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\fmt-6.1.2\src\posix.cc">
+      <Filter>vs linker ref\%28src%29 fmt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\fmt-6.1.2\src\format.cc">
+      <Filter>vs linker ref\%28src%29 fmt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\spdlog.cpp">
+      <Filter>vs linker ref\%28src%29 spdlog</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\stdout_sinks.cpp">
+      <Filter>vs linker ref\%28src%29 spdlog</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\async.cpp">
+      <Filter>vs linker ref\%28src%29 spdlog</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\color_sinks.cpp">
+      <Filter>vs linker ref\%28src%29 spdlog</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\file_sinks.cpp">
+      <Filter>vs linker ref\%28src%29 spdlog</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\fmt.cpp">
+      <Filter>vs linker ref\%28src%29 spdlog</Filter>
+    </ClCompile>
+    <ClCompile Include="..\CoreModules\include\net\net.sunc.cpp">
+      <Filter>vs linker ref\%28src%29 CoreModules</Filter>
+    </ClCompile>
+    <ClCompile Include="..\CoreModules\include\etc\etc.png.cpp">
+      <Filter>vs linker ref\%28src%29 CoreModules</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pch.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\view.openCL.cpp">
+      <Filter>view</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MyInput.cpp">
+      <Filter>app</Filter>
+    </ClCompile>
+    <ClCompile Include="source\view.BezierCurve.cpp" />
+    <ClCompile Include="source\view.openCV.cpp">
+      <Filter>view</Filter>
+    </ClCompile>
+    <ClCompile Include="source\view.corbaLog.cpp">
+      <Filter>view</Filter>
+    </ClCompile>
+    <ClCompile Include="source\view.suncBench.cpp">
+      <Filter>view</Filter>
+    </ClCompile>
+    <ClCompile Include="source\imview_live_test.h">
+      <Filter>view\old</Filter>
+    </ClCompile>
+    <ClCompile Include="source\view.sortView.cpp" />
+    <ClCompile Include="source\view.wifiMap.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imconfig.h">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imgui.h">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imgui_internal.h">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imstb_rectpack.h">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imstb_textedit.h">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imstb_truetype.h">
+      <Filter>vs linker ref\%28src%29 imgui-code-souce</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\lodepng\lodepng_util.h">
+      <Filter>vs linker ref\%28src%29 lodepng-souce</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\lodepng\lodepng.h">
+      <Filter>vs linker ref\%28src%29 lodepng-souce</Filter>
+    </ClInclude>
+    <ClInclude Include="source\img_bitmap_font.h">
+      <Filter>app</Filter>
+    </ClInclude>
+    <ClInclude Include="source\MyInput.h">
+      <Filter>app</Filter>
+    </ClInclude>
+    <ClInclude Include="source\pch.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\MyRender.h">
+      <Filter>app</Filter>
+    </ClInclude>
+    <ClInclude Include="source\imview.h">
+      <Filter>view</Filter>
+    </ClInclude>
+    <ClInclude Include="source\imview_zlib_test.h">
+      <Filter>view\old</Filter>
+    </ClInclude>
+    <ClInclude Include="source\imview.playground.h">
+      <Filter>view\old</Filter>
+    </ClInclude>
+    <ClInclude Include="source\imview_draw.h">
+      <Filter>view\old</Filter>
+    </ClInclude>
+    <ClInclude Include="source\imview_opencl.h">
+      <Filter>view\old</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\3rd-party\glwf-3.2.1\32\src\Release\glfw3.lib">
+      <Filter>vs linker ref\%28lib%29 glew &amp; glwf %28todell%29\x32 release</Filter>
+    </Library>
+    <Library Include="..\3rd-party\glwf-3.2.1\64\src\Release\glfw3.lib">
+      <Filter>vs linker ref\%28lib%29 glew &amp; glwf %28todell%29\x64 release</Filter>
+    </Library>
+    <Library Include="..\3rd-party\glew-2.1.0\64\lib\Release\glew64.lib">
+      <Filter>vs linker ref\%28lib%29 glew &amp; glwf %28todell%29\x64 release</Filter>
+    </Library>
+    <Library Include="..\3rd-party\glew-2.1.0\32\lib\Release\glew32.lib">
+      <Filter>vs linker ref\%28lib%29 glew &amp; glwf %28todell%29\x32 release</Filter>
+    </Library>
+    <Library Include="..\3rd-party\zlib-1.2.11\Release\zlibstatic.lib">
+      <Filter>vs linker ref\%28lib%29 zlib %28disabled%29\x32</Filter>
+    </Library>
+    <Library Include="..\3rd-party\zlib-1.2.11\64\Release\zlibstatic.lib">
+      <Filter>vs linker ref\%28lib%29 zlib %28disabled%29\x64</Filter>
+    </Library>
+    <Library Include="..\..\libs\opencv\build\x64\vc14\lib\opencv_world320.lib">
+      <Filter>vs linker ref\%28lib%29 open-cv %28x64 only%29\x64</Filter>
+    </Library>
+    <Library Include="..\..\..\Program Files (x86)\OCL_SDK_Light\lib\x86\opencl.lib">
+      <Filter>vs linker ref\%28lib%29 open-cl\x32</Filter>
+    </Library>
+    <Library Include="..\..\..\Program Files (x86)\OCL_SDK_Light\lib\x86_64\opencl.lib">
+      <Filter>vs linker ref\%28lib%29 open-cl\x64</Filter>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="image_view.natvis">
+      <Filter>vs linker ref\misc</Filter>
+    </Natvis>
+    <Natvis Include="..\3rd-party\imgui-1.70\misc\natvis\imgui.natvis">
+      <Filter>vs linker ref\misc</Filter>
+    </Natvis>
+  </ItemGroup>
+</Project>

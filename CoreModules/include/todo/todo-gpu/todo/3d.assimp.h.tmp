@@ -1,0 +1,700 @@
+#pragma once
+
+#include "../shared_in.h"
+
+#include "libs/assimp-3.3.1/Importer.hpp"		// C++ importer interface
+#include "libs/assimp-3.3.1/scene.h"			// Output data structure
+#include "libs/assimp-3.3.1/postprocess.h"		// Post processing flags
+#include "libs/assimp-3.3.1/version.h"			// Post processing flags
+
+DEF_UMODULE(assimp_module, "assimp_lib", "3.3.1",
+
+"Open Asset Import Library (assimp)"            "\n"
+"Site:      http://assimp.sourceforge.net/"     "\n"
+"Github:    https://github.com/assimp/assimp"   "\n"
+"License:   Modified 3-clause BSD-License"
+);
+
+constexpr bool ignore_lines_and_points              = true;
+constexpr bool replase_missing_textures_to_marker   = false;
+constexpr bool texture_marker_file                  = "assets\\ex\\marker.png";
+
+
+
+ 
+
+
+//static constexpr bool points_and_lines_allowed = false;
+
+
+void CreateVertexBuffer	(){}
+void CreateIndexBuffer	(){}
+void CreateTexture		(){}
+
+//#include <D:/Assimp/assimp-3.1.1/tools/assimp_view/AnimEvaluator.h>
+//#include <D:/Assimp/assimp-3.1.1/tools/assimp_view/SceneAnimator.h>
+//#include <D:/Assimp/assimp-3.1.1/tools/assimp_view/SceneAnimator.cpp>
+
+// #include <assimp/cimport.h>     //  ERRORS
+
+#define	NULL_TEXTURE_PATH	L"Data\\Models\\null_tex.png"
+#define INVALID_MATERIAL	0xFFFFFFFF
+
+struct obj_Texture;		 // model primirive
+struct obj_Material;	 // model primirive
+struct obj_Mesh;		 // model primirive
+struct obj_Light;		 // model primirive
+struct obj_Camera;		 // model primirive
+struct obj_Bone;		 // model primirive
+
+struct ExImportVertex
+{
+    FLOAT3 Position;
+    FLOAT3 Normal;
+    FLOAT4 ColorDiffuse;
+    FLOAT3 Tangent;
+    FLOAT3 Bitangent;
+    FLOAT2 TextureUV;
+    FLOAT2 TextureUV2;
+
+    unsigned char mBoneIndices[4];
+    unsigned char mBoneWeights[4];
+};
+
+//using MeshVertex = ExImportVertex;
+using MeshVertex = PosTexNormal;
+
+
+
+struct Texture_obj
+{
+    void Release()
+    {
+        //_RELEASE(texture);
+        //_RELEASE(texview);
+    }
+
+    std::string FileName;
+    std::string Path;
+    //gpuTexture		*texture = nullptr;
+	//gpuTextureView	*texview = nullptr;
+};
+struct Material_obj
+{
+	std::string Name;
+
+	FLOAT4	ColorDeffuse   = FLOAT4(1, 1, 1, 1);   // Цвет
+	FLOAT4	ColorSpecular  = FLOAT4(1, 1, 1, 1);   // Цвет блеска
+	FLOAT4	ColorAmbient   = FLOAT4(0, 0, 0, 1);   // Цвет окружения
+	FLOAT4	ColorEmissive  = FLOAT4(0, 0, 0, 1);   // Цвет свечения (например через текстуру-маску ц областей)
+	
+    FLOAT	Opacity          = FLOAT(1.f);  // Непрозрачность
+	FLOAT	Shininess        = FLOAT(0.f);  // Блеск
+    FLOAT	SpecularStrength = FLOAT(1.f);	// Сила блеска
+
+    bool TwoSidedMat = false; // Двусторонний материал
+
+    ShadingMode Shading = ShadingMode::Gouraud; // Модель затенения
+
+    // tex
+
+ 	std::vector<Texture_obj> TEXTURE_DIFFUSE;	    // 1
+	std::vector<Texture_obj> TEXTURE_SPECULAR;	    // 2
+	std::vector<Texture_obj> TEXTURE_AMBIENT;	    // 3
+	std::vector<Texture_obj> TEXTURE_EMISSIVE;	    // 4
+	std::vector<Texture_obj> TEXTURE_HEIGHT;        // 5
+	std::vector<Texture_obj> TEXTURE_NORMALS;	    // 6
+	std::vector<Texture_obj> TEXTURE_SHININESS;	    // 7
+	std::vector<Texture_obj> TEXTURE_OPACITY;	    // 8
+	std::vector<Texture_obj> TEXTURE_DISPLACEMENT;  // 9
+	std::vector<Texture_obj> TEXTURE_LIGHTMAP;	    // 10
+	std::vector<Texture_obj> TEXTURE_REFLECTION;    // 11
+	std::vector<Texture_obj> TEXTURE_UNKNOWN;	    // 12
+};
+struct Mesh_obj
+{
+public:
+	//Mesh_obj  (const Mesh_obj&) = delete;
+	Mesh_obj  () {}
+// 	void Release () 
+// 	{
+// 		_RELEASE(VB); 
+// 		_RELEASE(IB); 
+// 	}
+
+public:
+	//bool CreateBuffers(ID3D11Device*); 
+
+	std::string Name;
+	size_t      PointCount;
+	size_t		MaterialIndex;
+
+	//MeshTopology MeshTupe = MeshTopology::TRIANGLE_Mesh;
+	//////////////////////////////////////////////////////////////////////////
+    FLOAT4 MinPos;	//
+    FLOAT4 MaxPos;	//
+    FLOAT4 MidPos;	//
+
+ 	std::vector<MeshVertex>	VectorPoint;
+	std::vector<UINT>       VectorIndex;
+
+	//std::vector<ModelVertex>		VectorPointFULL;//TODO
+	//ID3D11Buffer* VB;
+	//ID3D11Buffer* IB;
+};
+
+struct Light_obj {};
+struct Camera_obj {};
+struct Bone_obj {};
+
+class RModel
+{
+public:
+	RModel  () {}
+	~RModel () {}
+
+	bool LoadModel(fs::path path);
+    void Clear() 
+    {
+        ModelPath = "";
+        ModelFile = "";
+        ModelName = "";
+        LoadLogMessages.clear();
+        
+        N_Animations = 0;
+        N_Cameras    = 0;
+        N_Lights     = 0;
+        N_Materials  = 0;
+        N_Meshes     = 0;
+        N_Textures   = 0;
+
+        MinPos = FLOAT4(0,0,0,0);
+        MaxPos = FLOAT4(0,0,0,0);
+        MidPos = FLOAT4(0,0,0,0);
+
+        //ForArray(i, mSubMeshes.size()) mSubMeshes[i].Release();
+
+        mSubMeshes.clear();
+        mMaterials.clear();
+
+        _DELETE(pScene);
+    }
+
+    void local_logger(const std::string& sms)
+    {
+        LoadLogMessages.push_back(sms);
+    }
+
+    std::string ModelPath;
+    std::string ModelFile;
+    std::string ModelName;
+
+    std::vector<std::string> LoadLogMessages;
+
+	size_t N_Animations;
+	size_t N_Cameras;
+	size_t N_Lights;
+	size_t N_Materials;
+	size_t N_Meshes;
+	size_t N_Textures;
+
+    FLOAT4 MinPos;
+    FLOAT4 MaxPos;
+    FLOAT4 MidPos;
+
+	std::vector<Mesh_obj>		mSubMeshes;
+	std::vector<Material_obj>	mMaterials;
+
+    const aiScene* pScene = nullptr;
+
+	//////////////////////////////////////////////////////////////////////////
+	struct Anima_State
+	{
+		bool	Play = false;
+		double	Current = 0.0;
+
+		size_t	AnimCount = 0;
+		std::vector<std::string> Names;
+
+	};
+	
+
+
+private:
+	bool BuildMeshFromScene	(const aiScene*);
+    bool InitMaterials (aiMaterial** in, const size_t count);
+    bool InitMesh      (aiMesh**     in, const size_t count);
+
+
+};
+
+
+bool RModel::LoadModel(fs::path path)
+{
+    local_logger("Model: " + path.generic_string());
+    Clear();
+
+
+    bool ModelFindResult;
+    bool ModelReadResult;
+    bool ModelBuildResult;
+
+
+
+
+    "Process Steps"
+        "http://assimp.sourceforge.net/lib_html/postprocess_8h.html#a64795260b95f5a4b3f3dc1be4f52e410a8857a0e30688127a82c7b8939958c6dc";
+
+    //////////////////////////////////////////////////////////////////////////
+    unsigned int Flags =
+        aiProcess_CalcTangentSpace | // calculate tangents and bitangents if possible
+        aiProcess_JoinIdenticalVertices | // join identical vertices/ optimize indexing
+        aiProcess_ValidateDataStructure | // perform a full validation of the loader's output
+        aiProcess_ImproveCacheLocality | // improve the cache locality of the output vertices
+        aiProcess_RemoveRedundantMaterials | // remove redundant materials
+        aiProcess_FindDegenerates | // remove degenerated polygons from the import
+        aiProcess_FindInvalidData | // detect invalid model data, such as invalid normal vectors
+        aiProcess_GenUVCoords | // convert spherical, cylindrical, box and planar mapping to proper UVs
+        aiProcess_TransformUVCoords | // preprocess UV transformations (scaling, translation ...).
+        aiProcess_FlipUVs | // курлык ёпта
+        aiProcess_FindInstances | // search for instanced meshes and remove them by references to one master
+        aiProcess_LimitBoneWeights | // limit bone weights to 4 per vertex
+        aiProcess_OptimizeMeshes | // join small meshes, if possible;
+        aiProcess_SplitByBoneCount | // split meshes with too many bones. Necessary for our (limited) hardware skinning shader
+        aiProcess_SortByPType | // make 'clean' meshes which consist of a single typ of primitives
+        aiProcess_FixInfacingNormals | //
+      //aiProcess_PretransformVertices	    | // [0 это]
+      //aiProcess_GenNormals				| // [1 это]
+        aiProcess_GenSmoothNormals | // [1 или это] generate smooth normal vectors if not existing
+        aiProcess_SplitLargeMeshes | // split large, unrenderable meshes into submeshes
+        aiProcess_Triangulate | // triangulate polygons with more than 3 edges
+        aiProcess_ConvertToLeftHanded | // convert everything to D3D left handed space
+        aiProcess_OptimizeGraph               // [0 или это] 
+        ;
+
+    //	AI_SCENE_FLAGS_VALIDATION_WARNING
+    // 	AI_CONFIG_PP_GSN_MAX_SMOOTHING_ANGLE
+    // 	AI_CONFIG_PP_SLM_VERTEX_LIMIT
+    // 	AI_CONFIG_PP_SLM_TRIANGLE_LIMIT 
+    // 	AI_SLM_DEFAULT_MAX_VERTICES 
+    // 	AI_SLM_DEFAULT_MAX_TRIANGLES 
+    ///*configRemoveDegenerates =*/ (0 != Importer.GetPropertyInteger(AI_CONFIG_PP_FD_REMOVE, 0));
+
+    //-------------------------------------------------------------------------------------//
+
+    ModelFindResult = fs::exists(path);
+
+    if (ModelFindResult)
+    {
+
+    }
+    else
+    {
+        local_logger("[error] file not exist");
+        return false;
+    }
+
+    //-------------------------------------------------------------------------------------//
+
+    Assimp::Importer Importer;
+
+    if (ignore_lines_and_points)
+        Importer.SetPropertyInteger(AI_CONFIG_PP_SBP_REMOVE, aiPrimitiveType_POINT | aiPrimitiveType_LINE);
+
+    pScene = Importer.ReadFile(path.generic_string(), Flags);
+    
+    ModelReadResult = bool(pScene);
+    
+    if (ModelReadResult)
+        local_logger("Model readed successfully. Parsing data...");
+    else
+    {
+        local_logger("[error] Model reading error. Check model file");
+        return false;
+    }
+   
+    //-------------------------------------------------------------------------------------//
+
+    ModelPath = path.generic_string();
+    ModelFile = path.filename().generic_string();
+    ModelName = pScene->mRootNode->mName.C_Str();
+
+    ModelBuildResult = BuildMeshFromScene(pScene);
+ 
+   if (ModelBuildResult)
+       local_logger("Model builded successfully.");
+   else
+   {
+       local_logger("Model builded error.");
+       return false;
+   }
+     
+
+    return 0;
+}
+
+bool RModel::BuildMeshFromScene (const aiScene* pScene)
+{
+    // Initialize the meshes in the scene one by one
+    if (true && "Sub data n count")
+    {
+        N_Animations = pScene->HasAnimations() ? pScene->mNumAnimations : 0;
+        N_Cameras    = pScene->HasCameras   () ? pScene->mNumCameras    : 0;
+        N_Lights     = pScene->HasLights    () ? pScene->mNumLights     : 0;
+        N_Materials  = pScene->HasMaterials () ? pScene->mNumMaterials  : 0;
+        N_Meshes     = pScene->HasMeshes    () ? pScene->mNumMeshes     : 0;
+        N_Textures   = pScene->HasTextures  () ? pScene->mNumTextures   : 0;
+    }
+
+    mSubMeshes.resize(N_Meshes);
+    mMaterials.resize(N_Materials);
+
+    InitMaterials(pScene->mMaterials, mMaterials.size());
+    InitMesh(pScene->mMeshes, mSubMeshes.size());
+
+    //InitAnimations();
+
+    //TODO
+    if (true && "Mesh Name as file")
+    {
+ 
+
+    }
+    if (true && "Min-Max-Mid pos")
+    {
+        assert(N_Meshes > 0);
+
+        FLOAT4 gXYZ[2] = { mSubMeshes[0].VectorPoint[0].pos, mSubMeshes[0].VectorPoint[0].pos };
+        FLOAT4 lXYZ[2] = { mSubMeshes[0].VectorPoint[0].pos, mSubMeshes[0].VectorPoint[0].pos };
+
+        ForArray(i, mSubMeshes.size())
+        {
+            lXYZ[0] = mSubMeshes[i].VectorPoint[0].pos;
+            lXYZ[1] = mSubMeshes[i].VectorPoint[0].pos;
+ 
+            ForArray(j, mSubMeshes[i].VectorPoint.size())
+            {
+                auto& v = mSubMeshes[i].VectorPoint[j].pos;
+
+                lXYZ[0].x = math::min(lXYZ[0].x, v.x);
+                lXYZ[0].y = math::min(lXYZ[0].y, v.y);
+                lXYZ[0].z = math::min(lXYZ[0].z, v.z);
+                lXYZ[0].w = 1.0f;
+
+                lXYZ[1].x = math::max(lXYZ[1].x, v.x);
+                lXYZ[1].y = math::max(lXYZ[1].y, v.y);
+                lXYZ[1].z = math::max(lXYZ[1].z, v.z);
+                lXYZ[1].w = 1.0f;
+ 
+            }
+
+            mSubMeshes[i].MinPos = lXYZ[0];
+            mSubMeshes[i].MaxPos = lXYZ[1];
+            mSubMeshes[i].MidPos = (lXYZ[0] + lXYZ[1]) / 2.0f;
+
+            gXYZ[0] = math::min(gXYZ[0], lXYZ[0]);
+            gXYZ[1] = math::max(gXYZ[1], lXYZ[1]);
+        }
+
+        MinPos = gXYZ[0];
+        MaxPos = gXYZ[1];
+        MidPos = (gXYZ[0] + gXYZ[1]) / 2.0f;
+
+    }
+
+
+    return true;
+}
+bool RModel::InitMaterials(aiMaterial** in, const size_t count)
+{
+    ForArray(i, count) 
+    {
+        const aiMaterial *material = in[i];
+        Material_obj& Mat = mMaterials[i];
+
+        if ("Material data")
+        {
+            aiString buffer;
+
+            if (AI_SUCCESS != aiGetMaterialString(material, AI_MATKEY_NAME, &buffer))
+                Mat.Name = "NoNameMaterial";
+            else
+                Mat.Name = buffer.C_Str();
+ 
+
+            // COLOR
+            if (AI_SUCCESS != aiGetMaterialColor(material, AI_MATKEY_COLOR_DIFFUSE,  (aiColor4D*)&Mat.ColorDeffuse))  {}
+            if (AI_SUCCESS != aiGetMaterialColor(material, AI_MATKEY_COLOR_SPECULAR, (aiColor4D*)&Mat.ColorSpecular)) {}
+            if (AI_SUCCESS != aiGetMaterialColor(material, AI_MATKEY_COLOR_AMBIENT,  (aiColor4D*)&Mat.ColorAmbient)) {}
+            if (AI_SUCCESS != aiGetMaterialColor(material, AI_MATKEY_COLOR_EMISSIVE, (aiColor4D*)&Mat.ColorEmissive)) {}
+            if (AI_SUCCESS != aiGetMaterialFloat(material, AI_MATKEY_OPACITY, (float*)&Mat.Opacity)){}
+
+            // SHADING
+
+            aiShadingMode ai_smode = aiShadingMode::aiShadingMode_Gouraud;
+ 
+            if (AI_SUCCESS == aiGetMaterialInteger(material, AI_MATKEY_SHADING_MODEL, (int*)&ai_smode))
+            {
+                switch (ai_smode)
+                {
+                case aiShadingMode_Flat:        Mat.Shading = ShadingMode::Flat;    break;
+                case aiShadingMode_Gouraud:     Mat.Shading = ShadingMode::Gouraud; break;
+                case aiShadingMode_Phong:       Mat.Shading = ShadingMode::Phong;   break;
+                case aiShadingMode_Blinn:         
+                case aiShadingMode_Toon:          
+                case aiShadingMode_OrenNayar:     
+                case aiShadingMode_Minnaert:      
+                case aiShadingMode_CookTorrance:  
+                case aiShadingMode_NoShading:     
+                case aiShadingMode_Fresnel:       
+                case _aiShadingMode_Force32Bit:   
+                default:
+
+                    local_logger("Unsuported shading mode. Swiched to 'Gouraud shading'");
+                    Mat.Shading = ShadingMode::Gouraud;
+                    break;
+                }
+            }
+            if (AI_SUCCESS != aiGetMaterialFloat(material, AI_MATKEY_SHININESS, &Mat.Shininess)) { /*Mat.Shininess = 15.0f;*/ }
+            if (AI_SUCCESS != aiGetMaterialFloat(material, AI_MATKEY_SHININESS_STRENGTH, &Mat.SpecularStrength)) {}
+ 
+            // Renred
+
+            int ai_draw_two_sides = 0;
+
+            if (AI_SUCCESS == aiGetMaterialInteger(material, AI_MATKEY_TWOSIDED, (int*)&ai_draw_two_sides))
+            {
+                Mat.TwoSidedMat = (ai_draw_two_sides != 0);
+            }
+
+
+ 
+        }
+        if ("Material tex") 
+        {
+            aiString szPath;
+            aiTextureMapMode mapU(aiTextureMapMode_Wrap), mapV(aiTextureMapMode_Wrap);
+
+ 
+            bool bib = false;
+            if (true || "LoadTextures"/*pcSource->mTextureCoords[0]*/)
+            {
+
+                auto texture_loader_lamda = [&](aiTextureType type, std::vector<Texture_obj>& vec)
+                {
+                    ForArray(i, i < material->GetTextureCount(aiTextureType_AMBIENT)) 
+                    {
+                        material->GetTexture(type, 0, &szPath, nullptr, nullptr, nullptr, nullptr, nullptr);
+                   
+                        Texture_obj tex;
+                        tex.FileName = szPath.C_Str();
+                        tex.Path     = szPath.C_Str();
+ 
+                        Mat.TEXTURE_DIFFUSE.push_back(tex);
+                    }
+                };
+  
+                texture_loader_lamda(aiTextureType_DIFFUSE,      Mat.TEXTURE_DIFFUSE);
+                texture_loader_lamda(aiTextureType_SPECULAR,     Mat.TEXTURE_SPECULAR);
+                texture_loader_lamda(aiTextureType_AMBIENT,      Mat.TEXTURE_AMBIENT);
+                texture_loader_lamda(aiTextureType_EMISSIVE,     Mat.TEXTURE_EMISSIVE);
+                texture_loader_lamda(aiTextureType_HEIGHT,       Mat.TEXTURE_HEIGHT);
+                texture_loader_lamda(aiTextureType_NORMALS,      Mat.TEXTURE_NORMALS);
+                texture_loader_lamda(aiTextureType_SHININESS,    Mat.TEXTURE_SHININESS);
+                texture_loader_lamda(aiTextureType_OPACITY,      Mat.TEXTURE_OPACITY);
+                texture_loader_lamda(aiTextureType_DISPLACEMENT, Mat.TEXTURE_DISPLACEMENT);
+                texture_loader_lamda(aiTextureType_LIGHTMAP,     Mat.TEXTURE_LIGHTMAP);
+                texture_loader_lamda(aiTextureType_REFLECTION,   Mat.TEXTURE_REFLECTION);
+                texture_loader_lamda(aiTextureType_UNKNOWN,      Mat.TEXTURE_UNKNOWN);
+            }
+        }
+    }
+
+    return true;
+
+}
+bool RModel::InitMesh(aiMesh** in, const size_t count)
+{
+    ForArray (id, count)
+    {
+        const aiMesh* pMesh = in[id];
+        Mesh_obj& Mesh = mSubMeshes[id];
+
+        Mesh.Name           = pMesh->mName.C_Str();
+        Mesh.PointCount     = pMesh->mNumVertices;
+        Mesh.MaterialIndex  = pMesh->mMaterialIndex;
+
+        //////////////////////////////////////////////////////////////////////////
+        assert(pMesh->mPrimitiveTypes == aiPrimitiveType_TRIANGLE);
+
+        Mesh.VectorPoint.resize(pMesh->mNumVertices);
+        Mesh.VectorIndex.resize(pMesh->mNumFaces * 3);
+
+        const aiVector3D Zero3D(0.0f, 0.0f, 0.0f);
+        const aiVector3D* pPos      = (pMesh->mVertices);
+        const aiVector3D* pNormal   = (pMesh->mNormals);
+        const aiVector3D* pTexCoord = pMesh->HasTextureCoords(0) ? &(pMesh->mTextureCoords[0][id]) : &Zero3D;
+
+        ForArray(i,     pMesh->mNumVertices)
+        {
+            VPosTexNormal vertex
+            {
+                FLOAT4( pPos[i].x, 
+                        pPos[i].y, 
+                        pPos[i].z, 
+                        1.0f),
+
+                FLOAT2( pTexCoord[i].x,
+                        pTexCoord[i].y),
+
+                FLOAT4( pNormal[i].x, 
+                        pNormal[i].y, 
+                        pNormal[i].z, 
+                        1.0f)
+            };
+
+            Mesh.VectorPoint[i] = vertex;
+        }
+        ForArray(face,  pMesh->mNumFaces)
+        {
+            const aiFace& Face = pMesh->mFaces[face];
+
+            if (Face.mNumIndices == 3)
+            {
+                Mesh.VectorIndex[face * 3 + 0] = Face.mIndices[0];
+                Mesh.VectorIndex[face * 3 + 1] = Face.mIndices[1];
+                Mesh.VectorIndex[face * 3 + 2] = Face.mIndices[2];
+            }
+            else
+            {
+                Mesh.VectorIndex[face * 3 + 0] = 0;
+                Mesh.VectorIndex[face * 3 + 1] = 0;
+                Mesh.VectorIndex[face * 3 + 2] = 0;
+                //if (Face.mNumIndices > 0) { Indexs.push_back(Face.mIndices[0]);
+                //if (Face.mNumIndices > 1) { Indexs.push_back(Face.mIndices[1]);
+                //if (Face.mNumIndices > 2) { Indexs.push_back(Face.mIndices[2]); 
+                //        }
+                //    }
+                //}
+                continue;
+            }
+        }
+
+
+
+
+        return true;
+    }
+
+    if (true || "Mesh Samlping Vertex_F3_F2_F3")   {}
+    if (true || "Mesh Samlping anim Vertex_FULL TODO")
+    {
+
+//         const aiVector3D Zero3D(0.0f, 0.0f, 0.0f);
+// 
+//         std::vector<std::vector<aiVertexWeight> > WghPerVer(mesh->mNumVertices);
+// 
+//         WghPerVer.reserve(8000);
+// 
+//         if (true || "aiVertexWeight")
+//         {
+//             for (size_t a = 0; a < mesh->mNumBones; a++)
+//             {
+//                 const aiBone* bone = mesh->mBones[a];
+//                 for (size_t b = 0; b < bone->mNumWeights; b++)
+//                     WghPerVer[bone->mWeights[b].mVertexId].push_back(aiVertexWeight(a, bone->mWeights[b].mWeight));
+//             }
+// 
+//         }
+//         for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+//         {
+//             ModelVertex Point;
+//             ModelVertex *P = &Point;
+// 
+// 
+// 
+// 
+//             if (true || "POS		")
+//             {
+//                 P->vPosition = TO_XMFLOAT3(mesh->mVertices[i]);
+//             }
+//             if (true || "NORMAL		")
+//             {
+//                 if (NULL == mesh->mNormals)	P->vNormal = XMFLOAT3(0.0f, 0.0f, 0.0f);
+//                 else						P->vNormal = TO_XMFLOAT3(mesh->mNormals[i]);
+//             }
+//             if (true || "TANGENTS	")
+//             {
+//                 if (NULL == mesh->mTangents)
+//                 {
+//                     P->vTangent = XMFLOAT3(0.0f, 0.0f, 0.0f);
+//                     P->vBitangent = XMFLOAT3(0.0f, 0.0f, 0.0f);
+//                 }
+//                 else
+//                 {
+//                     P->vTangent = TO_XMFLOAT3(mesh->mTangents[i]);
+//                     P->vBitangent = TO_XMFLOAT3(mesh->mBitangents[i]);
+//                 }
+//             }
+//             if (true || "COLOR_UV	")
+//             {
+//                 if (mesh->HasVertexColors(0))
+//                 {
+// 
+//                     P->dColorDiffuse.x = max(min(mesh->mColors[0][i].r, 1.0f), 0.0f);
+//                     P->dColorDiffuse.y = max(min(mesh->mColors[0][i].g, 1.0f), 0.0f);
+//                     P->dColorDiffuse.z = max(min(mesh->mColors[0][i].b, 1.0f), 0.0f);
+//                     P->dColorDiffuse.w = max(min(mesh->mColors[0][i].a, 1.0f), 0.0f);
+//                 }
+//                 else P->dColorDiffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+//             }
+//             if (true || "TEX		")
+//             {
+//                 // ignore a third texture coordinate component
+//                 if (mesh->HasTextureCoords(0))	P->vTextureUV = TO_XMFLOAT2(aiVector2D(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y));
+//                 else							P->vTextureUV = TO_XMFLOAT2(aiVector2D(0.5f, 0.5f));
+// 
+//                 if (mesh->HasTextureCoords(1))	P->vTextureUV2 = TO_XMFLOAT2(aiVector2D(mesh->mTextureCoords[1][i].x, mesh->mTextureCoords[1][i].y));
+//                 else							P->vTextureUV2 = TO_XMFLOAT2(aiVector2D(0.5f, 0.5f));
+//             }
+//             if (true || "BONES		")
+//             {
+//                 if (mesh->HasBones())
+//                 {
+//                     unsigned char BoneIndexs[4] = { 0, 0, 0, 0 };
+//                     unsigned char BoneWeight[4] = { 0, 0, 0, 0 };
+// 
+//                     assert(WghPerVer[i].size() <= 4);
+// 
+// 
+//                     for (unsigned int a = 0; a < WghPerVer[i].size(); a++)
+//                     {
+//                         BoneIndexs[a] = WghPerVer[i][a].mVertexId;
+//                         BoneWeight[a] = (unsigned char)(WghPerVer[i][a].mWeight * 255.0f);
+//                     }
+// 
+//                     memcpy(P->mBoneIndices, BoneIndexs, sizeof(BoneIndexs));
+//                     memcpy(P->mBoneWeights, BoneWeight, sizeof(BoneWeight));
+//                 }
+//                 else
+//                 {
+//                     memset(P->mBoneIndices, 0, sizeof(P->mBoneIndices));
+//                     memset(P->mBoneWeights, 0, sizeof(P->mBoneWeights));
+//                 }
+//             }
+// 
+//             PointsFULL.push_back(Point);
+//         }
+
+    }
+
+
+//     switch (mesh->mPrimitiveTypes)
+//     {
+//     case aiPrimitiveType_POINT:				m_SUB_MESHS[_ID].MeshTupe = POINT_Mesh;		break;
+//     case aiPrimitiveType_LINE:				m_SUB_MESHS[_ID].MeshTupe = LINE_Mesh;		break;
+//     case aiPrimitiveType_TRIANGLE:			m_SUB_MESHS[_ID].MeshTupe = TRIANGLE_Mesh;	break;
+//     default: assert(false);
+//     };
+
+}

@@ -1,0 +1,10 @@
+/.*/
+/BUILD/
+/3rd-party/
+/packages/
+*ASSETS*
+
+/.*
+/bat.bat
+/vswhere.exe
+/desktop.ini

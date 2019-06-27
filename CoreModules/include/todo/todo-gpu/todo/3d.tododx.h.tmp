@@ -1,0 +1,1116 @@
+#pragma once
+
+#include "../shared_in.h"
+
+namespace 
+{
+	using namespace DirectX;
+}
+ 
+
+static inline FLOAT2 TO_FLOAT2(CVECTOR a) { FLOAT2 temp; XMStoreFloat2(&temp, a); return temp; }
+static inline FLOAT3 TO_FLOAT3(CVECTOR a) { FLOAT3 temp; XMStoreFloat3(&temp, a); return temp; }
+static inline FLOAT4 TO_FLOAT4(CVECTOR a) { FLOAT4 temp; XMStoreFloat4(&temp, a); return temp; }
+
+ 
+// struct Matrix
+// {
+// 	static inline MATRIX Identity();
+// 	static inline MATRIX Transpose();
+// 	
+// 	static inline MATRIX Translation(CFLOAT3 vec);
+// 	static inline MATRIX Rotation	(CFLOAT3 vec);
+// 	static inline MATRIX Scaling	(CFLOAT3 vec);
+// 
+// 
+// 
+// };
+
+struct Matrix
+{
+	// [ 1 0 0 0 ]
+	// [ 0 1 0 0 ]
+	// [ 0 0 1 0 ]
+	// [ 0 0 0 1 ]
+	static inline MATRIX Identity() { return DirectX::XMMatrixIdentity(); }
+
+
+	// Транспонирование матрицы   
+	static inline MATRIX Transpose	(CMATRIX arg) { return DirectX::XMMatrixTranspose(arg); }
+
+	static inline MATRIX Translation(CFLOAT3 vec) { return DirectX::XMMatrixTranslation			(vec.x, vec.y, vec.z); }
+	static inline MATRIX Rotation	(CFLOAT3 vec) { return DirectX::XMMatrixRotationRollPitchYaw(vec.x, vec.y, vec.z); }
+	static inline MATRIX Scaling	(CFLOAT3 vec) { return DirectX::XMMatrixScaling				(vec.x, vec.y, vec.z); }
+
+	//
+	// [ ROTATION ]
+	//
+
+	// Создает матрицу вращения, используя заданные тангаж, рыскание и рулоне (углы Эйлера).
+	static inline MATRIX RotationRollPitchYaw(float Pitch, float Yaw, float Roll) { return DirectX::XMMatrixRotationRollPitchYaw(Pitch, Yaw, Roll); }
+	static inline MATRIX RotationRollPitchYawFromVector(VECTOR arg) { return DirectX::XMMatrixRotationRollPitchYawFromVector(arg); }
+
+	// Создает матрицу, которая вращается вокруг оси
+	static inline MATRIX RotationAxis(float Angle, VECTOR Axis) { return DirectX::XMMatrixRotationAxis(Axis, Angle); }
+	static inline MATRIX RotationX   (float Angle) { return DirectX::XMMatrixRotationX(Angle); }
+	static inline MATRIX RotationY   (float Angle) { return DirectX::XMMatrixRotationY(Angle); }
+	static inline MATRIX RotationZ   (float Angle) { return DirectX::XMMatrixRotationZ(Angle); }
+
+
+	//
+	// [ VIEW ]
+	//
+
+	// Создает матрицу вида для левой рукой системы координат, используя положение камеры, направление вверх, и фокус.
+	// (1) Eye		- Позиция взгляда
+	// (2) Focus	- Точка фокуса
+	// (3) Up		- Вектор вверх
+	static inline MATRIX LookAtLH(CVECTOR Eye, CVECTOR Focus, CVECTOR Up) { return DirectX::XMMatrixLookAtLH(Eye, Focus, Up); }
+
+	//	Сборка матрицы перспективной проекции левостороннюю, основанную на поле зрения.
+	//	(1)	Fov		- вертикальный угол обзора  
+	//	(2)	Aspect	- соотношение сторон	    
+	//	(3)	NearZ	- ближняя грань отсечения ( должен быть больше нуля )   
+	//	(4)	FarZ	- дальняя грань отсечения ( должен быть больше нуля ) 
+	//
+	// замечания:
+	//	Для обычного использования, NearZ меньше FarZ. Тем не менее, если вы переключаете эти значения так FarZ меньше NearZ, 
+	//	результат представляет собой перевернутую z буфер, который может обеспечить повышенную точность с плавающей запятой.
+	//	NearZ и FarZ не может быть одинаковым.
+	//
+	static inline MATRIX PerspectiveFovLH(FLOAT4 arg) { return DirectX::XMMatrixPerspectiveFovLH(arg.x, arg.y, arg.z, arg.w); }
+	static inline MATRIX PerspectiveFovLH(float Fov, float Aspect, float NearZ, float FarZ) { return DirectX::XMMatrixPerspectiveFovLH(Fov, Aspect, NearZ, FarZ); }
+
+	//	Формирует ортогональную матрицу проекции для левосторонней системы координат.
+	//	(1) Width	-	Ширина усеченной фигуры в ближайшем плоскости отсечени.
+	//	(2) Height	-	Высота усеченного в ближайшем плоскости отсечени.
+	//	(3) NearZ	-	Расстояние до ближайшей плоскости отсечени.
+	//	(4) FarZ		-	Расстояние до дальней плоскости отсечения.
+	static inline MATRIX OrthographicLH(FLOAT4 arg) { return DirectX::XMMatrixOrthographicLH(arg.x, arg.y, arg.z, arg.w); }
+	static inline MATRIX OrthographicLH(float Width, float Height, float NearZ, float FarZ) { return DirectX::XMMatrixOrthographicLH(Width, Height, NearZ, FarZ); }
+
+
+
+
+
+	static inline MATRIX TranslationFromVector(VECTOR arg) { return DirectX::XMMatrixTranslationFromVector(arg); }
+	static inline MATRIX ScalingFromVector(VECTOR arg) { return DirectX::XMMatrixScalingFromVector(arg); }
+};
+
+struct Vector	// XMVECTOR3 math
+{
+	static inline VECTOR Set(FLOAT3 arg) { return DirectX::XMVectorSet(arg.x, arg.y, arg.z, 1.0f); }
+	static inline VECTOR Set(FLOAT4 arg) { return DirectX::XMVectorSet(arg.x, arg.y, arg.z, arg.w); }
+	static inline VECTOR Set(float x, float y, float z) { return DirectX::XMVectorSet(x, y, z, 1.0f); }
+	static inline VECTOR Set(float x, float y, float z, float w) { return DirectX::XMVectorSet(x, y, z, w); }
+
+	static inline FLOAT  GetFloat (CVECTOR arg) { FLOAT  out; DirectX::XMStoreFloat (&out, arg); return out; }
+	static inline FLOAT2 GetFloat2(CVECTOR arg) { FLOAT2 out; DirectX::XMStoreFloat2(&out, arg); return out; }
+	static inline FLOAT3 GetFloat3(CVECTOR arg) { FLOAT3 out; DirectX::XMStoreFloat3(&out, arg); return out; }
+	static inline FLOAT4 GetFloat4(CVECTOR arg) { FLOAT4 out; DirectX::XMStoreFloat4(&out, arg); return out; }
+
+	//	Трансформирует 3D вектор с помощью данной матрицы, проецирует результат обратно в W = 1.
+
+	static inline VECTOR Transform2(CVECTOR V, CMATRIX M) { return DirectX::XMVector2Transform(V, M); }
+	static inline VECTOR Transform3(CVECTOR V, CMATRIX M) { return DirectX::XMVector3Transform(V, M); }
+	static inline VECTOR Transform4(CVECTOR V, CMATRIX M) { return DirectX::XMVector4Transform(V, M); }
+
+	//	Трансформирует 3D вектор с помощью данной матрицы, проецирует результат обратно в W = 1.
+	//
+	// замечания:
+	//	игнорирует W компоненты входного вектора, и использует значение 1.0 вместо. W компонент Возвращенный вектор всегда будет 1,0.
+	static inline VECTOR TransformCoord2(CVECTOR V, CMATRIX M) { return DirectX::XMVector2TransformCoord(V, M); }
+	static inline VECTOR TransformCoord3(CVECTOR V, CMATRIX M) { return DirectX::XMVector3TransformCoord(V, M); }
+	//static inline VECTOR TransformCoord4(CVECTOR V, CMATRIX M) { return DirectX::XMVector4TransformCoord(V, M); }
+
+
+	//	 Возвращает нормализованное версию 3D-вектора.
+	//	 Для вектора длины 0, то эта функция возвращает нулевой вектор. Для вектора с бесконечной длины, то она возвращает вектор QNaN.
+	static inline VECTOR Normalize2(CVECTOR V) { return DirectX::XMVector2Normalize(V); }
+	static inline VECTOR Normalize3(CVECTOR V) { return DirectX::XMVector3Normalize(V); }
+	static inline VECTOR Normalize4(CVECTOR V) { return DirectX::XMVector4Normalize(V); }
+
+	//	Обратите внимание, что для большинства графических приложений, обеспечивая векторы имеют четко определенные длины, 
+	//	которые не вызывают проблем для нормализации является обычной практикой. Тем не менее, если вам нужен надежный нормализацию, 
+	//	которая работает для всех с плавающей точкой входа, вы можете использовать следующий код вместо того, чтобы:
+	static inline VECTOR NormalizeRobust(CVECTOR V)
+	{
+		// Compute the maximum absolute value component.
+		XMVECTOR vAbs = DirectX::XMVectorAbs(V);
+		XMVECTOR max0 = DirectX::XMVectorSplatX(vAbs);
+		XMVECTOR max1 = DirectX::XMVectorSplatY(vAbs);
+		XMVECTOR max2 = DirectX::XMVectorSplatZ(vAbs);
+		max0 = DirectX::XMVectorMax(max0, max1);
+		max0 = DirectX::XMVectorMax(max0, max2);
+
+		// Divide by the maximum absolute component.
+		XMVECTOR normalized = DirectX::XMVectorDivide(V, max0);
+
+		// Set to zero when the original length is zero.
+		XMVECTOR mask = DirectX::XMVectorNotEqual(g_XMZero, max0);
+		normalized = DirectX::XMVectorAndInt(normalized, mask);
+
+		XMVECTOR t0 = DirectX::XMVector3LengthSq(normalized);
+		XMVECTOR length = DirectX::XMVectorSqrt(t0);
+
+		// Divide by the length to normalize.
+		normalized = DirectX::XMVectorDivide(normalized, length);
+
+		// Set to zero when the original length is zero or infinity.  In the
+		// latter case, this is considered to be an unexpected condition.
+		normalized = DirectX::XMVectorAndInt(normalized, mask);
+		return normalized;
+	}
+
+};
+
+
+
+
+VECTOR Point_2D_To_3D(int x, int y, int w, int h, CMATRIX _proj, CMATRIX _view, CMATRIX _world = XMMatrixIdentity())
+{
+	const VECTOR vec = DirectX::XMVectorSet((float)x, (float)y, 1.0f, 0.0f);
+	 
+	VECTOR out =
+		XMVector3Unproject(
+			vec,
+			(float)0, (float)0,	// ViewPort X Y
+			(float)w, (float)h,	// ViewPort Wight Height
+			(float)0, (float)1,	// ViewPort MinZ MaxZ
+ 			_proj,
+			_view,
+			_world
+		);
+
+	out = XMVector3Normalize(out);
+	return out;
+}
+VECTOR Point_3D_To_2D(CVECTOR _vec, int w, int h, CMATRIX _proj, CMATRIX _view, CMATRIX _world = XMMatrixIdentity())
+{
+	VECTOR out =
+		XMVector3Project(
+			_vec,
+			(float)0, (float)0,	// ViewPort X Y
+			(float)w, (float)h,	// ViewPort Wight Height
+			(float)0, (float)1,	// ViewPort MinZ MaxZ
+			_proj,
+			_view,
+			_world
+		);
+
+	//out = XMVector3Normalize(out);
+	return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class dx11_fabric : public gpu_fubric_api
+{
+public:
+    dx11_fabric() : DEF_UCLASS("dx11_fabric(gpu_fabric)", modules{ module_dx11 })
+    {
+    }
+    virtual ~dx11_fabric() {};
+    void operator =(const dx11_fabric&) = delete;
+
+public:
+    ID3D11Device*           DX11GetDevice()         { return pDevice;  }
+    ID3D11DeviceContext*    DX11GetDeviceContext()  { return pContext; }
+    os_hwnd                 GetWindowHwnd()         { return mRS.WindowHwnd; }
+protected:
+    gpuTexture* gpu_api_tex_from_file(const std::string& path) 
+    {
+        gpuTexture* new_tex = new gpuTexture;
+
+        bool result = ::WIC_TextureFromFile(pDevice, pContext, path, &new_tex->texture, &new_tex->view);
+
+        if (!result)
+        {
+            _DELETE(new_tex);
+            return nullptr;
+        }
+
+        D3D11_TEXTURE2D_DESC Desc = {};
+        new_tex->texture->GetDesc(&Desc);
+        new_tex->Wight  = Desc.Width;
+        new_tex->Height = Desc.Height;
+        new_tex->Loaded = true;
+
+        return new_tex;
+    }
+
+
+    void gpu_api_set_vertex_buffer(gpuVertexBuffer* buffer)
+    {
+        UINT stride = buffer->single_vertex_size;
+        UINT offset = 0;
+        pContext->IASetVertexBuffers(0, 1, &buffer->ptr, &stride, &offset);
+    }
+    void gpu_api_set_index_buffer(gpuIndexBuffer * buffer)
+    {
+        size_t offset = 0;
+        pContext->IASetIndexBuffer(buffer->ptr, DXGI_FORMAT_R32_UINT, offset);
+    }
+    void gpu_api_set_const_buffer(gpuConstBuffer *) 
+    {
+        GetImpl()->uid();
+    }
+
+
+
+
+
+
+
+
+
+protected:
+
+
+	ID3D11Debug *d3dDebug = nullptr;
+
+	ID3D11Device*			pDevice;
+	ID3D11DeviceContext*	pContext;
+	IDXGISwapChain1*		pSwapChain;
+
+	D3D_DRIVER_TYPE		mDeviceType;
+	D3D_FEATURE_LEVEL	mFeatureLevel;			//	Версия DirextX     -	Описывает набор функций, направленных на устройство Direct3D					http://msdn.microsoft.com/ru-ru/library/windows/desktop/ff476329(v=vs.85).aspx
+
+	//////////////////////////////////////////////////////////////////////////
+
+	ID3D11Texture2D*			pBackBuffer		= nullptr;
+	ID3D11RenderTargetView*		pRT_View		= nullptr;
+ 	ID3D11Texture2D*			pDS_Buffer		= nullptr;
+ 	ID3D11DepthStencilView*		pDS_View		= nullptr;
+	ID3D11ShaderResourceView*	pDS_ShaderView	= nullptr;
+
+
+	ID3D11RenderTargetView* GetMainRTV() { return pRT_View; }
+	ID3D11DepthStencilView* GetMainDSV() { return pDS_View; }
+
+public:
+
+	bool Init(const RenderOptions& settings)
+	{
+		mRS = settings;
+
+		RESULT OK;
+
+		OK << InitDevice();
+
+		if (OK.IsSucceed())
+		{
+			OK << InitTopologys();
+			OK << InitSamplers();
+			OK << InitRasterizers();
+			OK << InitBlenders();
+		}
+
+ 		return OK.IsSucceed();
+	}
+	void Release() {}
+
+
+	virtual void Paint()
+	{
+		static FLOAT4 ColorReal = { 0,0,0,0 };
+		static FLOAT4 ColorGo	= { 0,0,0,0 };
+
+ 		if (math::equal(ColorReal, ColorGo, 0.001))
+		{
+			ColorGo.x = math::RandomFastR(0.0, 1.0);
+			ColorGo.y = math::RandomFastR(0.0, 1.0);
+			ColorGo.z = math::RandomFastR(0.0, 1.0);
+		}
+		else
+		{
+			ColorReal.x += (ColorGo.x - ColorReal.x) / 1000.0;
+			ColorReal.y += (ColorGo.y - ColorReal.y) / 1000.0;
+			ColorReal.z += (ColorGo.z - ColorReal.z) / 1000.0;
+		}
+
+		SetRenderTargets(GetMainRTV(), GetMainDSV());
+		ClearRenderTarget(ColorReal);
+		ClearDepthStencil(DSClearMode::ClearFull);
+
+		{
+			// render scene
+		}
+		PresentRender();
+
+ 		
+	}
+
+
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	void gpu_api_set_fullscreen_state(bool FullScr)
+	{
+		BOOL state = FullScr ? TRUE : FALSE;
+		
+		RESULT OK;
+
+ 		OK << pSwapChain->SetFullscreenState(state, nullptr);
+		OK << pSwapChain->GetFullscreenState(&state, nullptr);
+
+		mRS.FullScreen = (state == TRUE);
+ 	}
+
+	void gpu_api_main_resize(size_t vw, size_t vh, size_t rw, size_t rh)
+	{
+		bool resize_ok = __PRIVATE_API_ResizeRenderTargets(vw, vh);
+
+		if (resize_ok)
+		{
+			mRS.FullScreen			= __PRIVATE_API_IsFullScreen();
+			mRS.RealCanvasWeight	= rw;
+			mRS.RealCanvasHight		= rh;
+			mRS.RenderCanvasWight = vw;
+			mRS.RenderCanvasHeight	= vh;
+		}
+  	}
+ 
+ 
+	bool __PRIVATE_API_IsFullScreen() 
+	{
+		BOOL IsFullScr = FALSE;
+		pSwapChain->GetFullscreenState(&IsFullScr, nullptr);
+		return (IsFullScr == TRUE);
+	}
+ 	bool __PRIVATE_API_ResizeRenderTargets(int w, int h) 
+	{
+
+		pContext->ClearState();
+ 		pContext->OMSetRenderTargets(0, 0, 0);
+
+ 		SAFE_RELEASE(pBackBuffer);		// rt
+ 		SAFE_RELEASE(pRT_View);			// rt
+ 		SAFE_RELEASE(pDS_Buffer);		// dt
+		SAFE_RELEASE(pDS_View);			// dt
+		SAFE_RELEASE(pDS_ShaderView);	// dt
+ 
+ 		//d3dDebug->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
+  
+		RESULT OK;
+
+		OK << pSwapChain->ResizeBuffers(0, w, h, DXGI_FORMAT_UNKNOWN, 0);
+  		OK << pSwapChain->GetBuffer(0, __uuidof (ID3D11Texture2D), (void**)&pBackBuffer);
+		OK << pDevice->CreateRenderTargetView(pBackBuffer, NULL, &pRT_View);
+		//OK << pDevice->CreateShaderResourceView(pBackBuffer, &desc, &pDS_ShaderView);
+ 		//////////////////////////////////////////////////////////////////////////
+ 		D3D11_TEXTURE2D_DESC			TexDesc	 = {};
+		D3D11_DEPTH_STENCIL_VIEW_DESC	ViewDesc = {};
+		D3D11_SHADER_RESOURCE_VIEW_DESC ShadDesk = {};
+ 
+		TexDesc.Width				= w;
+		TexDesc.Height				= h;
+		TexDesc.MipLevels			= 1;
+		TexDesc.ArraySize			= 1;
+		TexDesc.MiscFlags			= 0;
+		TexDesc.CPUAccessFlags		= 0;
+		TexDesc.SampleDesc.Count	= mRS.MSAA_SamplerCount;
+		TexDesc.SampleDesc.Quality	= mRS.MSAA_QualityLevel;
+		TexDesc.Usage				= D3D11_USAGE_DEFAULT;
+		TexDesc.BindFlags			= D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+		TexDesc.Format				= DXGI_FORMAT_R32_TYPELESS;
+		//---------------------------------------------------------
+		ViewDesc.Flags				= 0;
+ 		ViewDesc.Texture2D.MipSlice = 0;
+		ViewDesc.Format				= DXGI_FORMAT_D32_FLOAT;
+		ViewDesc.ViewDimension		= (mRS.MSAA_SamplerCount < 1) ? D3D11_DSV_DIMENSION_TEXTURE2D : D3D11_DSV_DIMENSION_TEXTURE2DMS;
+		//---------------------------------------------------------
+  		ShadDesk.Format						= DXGI_FORMAT_R32_FLOAT;
+		ShadDesk.ViewDimension				= (mRS.MSAA_SamplerCount < 1) ?  D3D11_SRV_DIMENSION_TEXTURE2D : D3D11_SRV_DIMENSION_TEXTURE2DMS;
+		ShadDesk.Texture2D.MostDetailedMip	= 0;
+		ShadDesk.Texture2D.MipLevels		= -1;
+ 
+ 		OK << pDevice->CreateTexture2D(&TexDesc, NULL, &pDS_Buffer);
+		OK << pDevice->CreateDepthStencilView	(pDS_Buffer, &ViewDesc,		&pDS_View);
+		OK << pDevice->CreateShaderResourceView	(pDS_Buffer, &ShadDesk,	&pDS_ShaderView);
+  
+		D3D11_VIEWPORT vp;
+		vp.Width	= w;
+		vp.Height	= h;
+		vp.MinDepth = 0.0f;
+		vp.MaxDepth = 1.0f;
+		vp.TopLeftX = 0;
+		vp.TopLeftY = 0;
+ 
+		pContext->RSSetViewports(1, &vp);
+ 
+
+		return OK.IsSucceed();
+ 	}
+
+protected:
+
+	// API CALLS
+
+	bool gpu_api_present_render()
+	{
+		bool verticalSunc = mRS.vSunc ? 1 : 0;
+
+		HRESULT HR = pSwapChain->Present(verticalSunc, 0);
+ 
+		if (HR == DXGI_ERROR_DEVICE_REMOVED || HR == DXGI_ERROR_DEVICE_RESET)
+		{
+			log::error << "D3D Device lost";
+		}
+
+		RESULT OK;
+ 		OK << HR;
+ 		return OK.IsSucceed();
+	}
+
+
+	void gpu_api_bind_render_targets	(gpuRenderTarget* ren_target, gpuDepthStencil* dep_target)
+	{
+		currentRenderTarget = ren_target;
+		currentDepthStencil = dep_target;
+
+		gpuRenderTarget *ccRT;
+		gpuDepthStencil *ccRS;
+		pContext->OMGetRenderTargets(1, &ccRT, &ccRS);
+
+		bool ret = false;
+		if (ren_target == ccRT && dep_target == ccRS)
+			ret = true;
+	 
+		_RELEASE(ccRT);
+		_RELEASE(ccRS);
+
+		if (ret)
+			return;
+// 		if (currentRenderTarget == ren_target && currentDepthStencil == dep_target)
+//  			return;
+// 
+//  		if (ren_target == nullptr)
+// 			return;
+// 		else 
+// 		{
+// 			currentRenderTarget = ren_target;
+// 			currentDepthStencil = dep_target;
+// 		}
+		
+
+		// [1] target count		0 -- D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT 
+		// [2] render target or NULL
+		// [3] depth target  or NULL
+		pContext->OMSetRenderTargets(1, &ren_target, dep_target);
+	}
+	void gpu_api_clear_render_target	(FLOAT4 color = FLOAT4(0, 0, 0, 0), gpuRenderTarget* target = nullptr)
+	{
+		if (!target)
+			target = GetMainRTV();
+
+		pContext->ClearRenderTargetView(pRT_View, &color.x);
+ 	}
+	void gpu_api_clear_depth_stencil	(DSClearMode mode = DSClearMode::ClearFull, gpuDepthStencil* target = nullptr)
+	{
+		if (!target)
+			target = GetMainDSV();
+	
+		UINT clear_mode = 0;
+
+		switch (mode)
+		{
+		case DSClearMode::ClearDepth:	clear_mode = D3D11_CLEAR_DEPTH;
+		case DSClearMode::ClearStencil:	clear_mode = D3D11_CLEAR_STENCIL;
+		case DSClearMode::ClearFull:	clear_mode = D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL;
+ 		}
+
+ 		pContext->ClearDepthStencilView(pDS_View, clear_mode, 1, 0);
+	}
+
+	//  gpu api - Draw calls
+
+	void gpu_api_Draw			(size_t count) 
+    {
+        pContext->Draw(count, 0);
+    }
+	void gpu_api_DrawIndexed	(size_t index_count)
+    {
+        pContext->DrawIndexed(index_count, 0, 0);
+    }
+	
+	// gpu api - INIT
+
+	bool gpu_api_init_device		()
+	{
+ 		RESULT OK;
+
+  		D3D_DRIVER_TYPE	  DriverTypes  [] = { D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP, D3D_DRIVER_TYPE_REFERENCE,D3D_DRIVER_TYPE_SOFTWARE, D3D_DRIVER_TYPE_UNKNOWN };
+		D3D_FEATURE_LEVEL FeatureLevels[] = { D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0, };
+		UINT			  DT_count	= ARRAY_SIZE(DriverTypes);
+		UINT			  FL_count	= ARRAY_SIZE(FeatureLevels);
+  		//////////////////////////////////////////////////////////////////////////
+		UINT DeviceFlags = 0;
+#ifdef _DEBUG		
+		DeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+	  //DeviceFlags |= D3D11_CREATE_DEVICE_DEBUGGABLE;			// [Direct3D 11.1]
+		DeviceFlags |= D3D11_CREATE_DEVICE_SINGLETHREADED;
+	  //DeviceFlags |= D3D11_CREATE_DEVICE_DISABLE_GPU_TIMEOUT; // [Direct3D 11.1]
+#endif
+ 		//////////////////////////////////////////////////////////////////////////
+		IDXGIFactory2 *pFactory	= nullptr;  
+		IDXGIAdapter  *pAdapter	= nullptr;	
+		IDXGIOutput   *pOutput	= nullptr;	
+        DXGI_ADAPTER_DESC	MainAdapter;
+        DXGI_OUTPUT_DESC	MainOutput;
+
+		OK << CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)(&pFactory));
+ 		OK << pFactory->EnumAdapters(0, &pAdapter);  // Получаем основной адаптер
+		OK << pAdapter->GetDesc(&MainAdapter);		 // Получаем данные основного адаптера
+ 		OK << pAdapter->EnumOutputs(0, &pOutput);	 // Получаем основной выход
+        OK << pOutput->GetDesc(&MainOutput);
+
+ 
+		if ("Main gpu adapter info") 
+		{
+			std::string gpu_cam_name = SimpleConvert::wstring_to_string(std::wstring(MainAdapter.Description));
+			std::size_t GpuMemOwn	 = (MainAdapter.DedicatedVideoMemory	/ 1024 / 1024);	// Память видеокарты без доступа цп
+			std::size_t GpuMemLended = (MainAdapter.DedicatedSystemMemory	/ 1024 / 1024);	// Заимствованная видеокартой системная память без доступа цп
+			std::size_t GpuMemShared = (MainAdapter.SharedSystemMemory		/ 1024 / 1024);	// Общая системная память используемая видеокартой с доступом цп
+
+			log::debug << ("Main gpu card: " + gpu_cam_name);
+			log::debug << ("own    memory: " + to_string(GpuMemOwn));
+			log::debug << ("lended memory: " + to_string(GpuMemLended));
+			log::debug << ("shared memory: " + to_string(GpuMemShared));
+		}
+  		struct FullscrDisplayMode
+		{
+			size_t W;
+			size_t H;
+			size_t RefN;
+			size_t RefD;
+			//DXGI_FORMAT				format;
+			//DXGI_MODE_SCANLINE_ORDER	scalorder;
+			//DXGI_MODE_SCALING			scalling;
+		};
+
+		vector<FullscrDisplayMode> disp_modes;
+		//pOutput->FindClosestMatchingMode(,,);
+		if ("Adapters  ")
+		{
+			vector<DXGI_ADAPTER_DESC> adapters;
+ 			int i = 0;
+			while (pFactory->EnumAdapters(i++, &pAdapter) != DXGI_ERROR_NOT_FOUND)
+			{
+				DXGI_ADAPTER_DESC pDesc;
+				pAdapter->GetDesc(&pDesc);
+				adapters.push_back(pDesc);
+
+			}
+		}
+		if ("Разрешения")
+		{
+			UINT NumModes;
+
+			OK << pOutput->GetDisplayModeList(DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_ENUM_MODES_INTERLACED, &NumModes, NULL);
+ 			DXGI_MODE_DESC* displayModeList = new DXGI_MODE_DESC[NumModes];
+ 			OK << pOutput->GetDisplayModeList(DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_ENUM_MODES_INTERLACED, &NumModes, displayModeList);
+ 
+			ForArray(i, NumModes) 
+			{
+				FullscrDisplayMode dmode;
+
+				dmode.W			= displayModeList[i].Width;
+				dmode.H			= displayModeList[i].Height;
+				dmode.RefN		= displayModeList[i].RefreshRate.Numerator;
+				dmode.RefD		= displayModeList[i].RefreshRate.Denominator;
+			//	new_mode.format		= displayModeList[i].Format;
+			//	new_mode.scalorder	= displayModeList[i].ScanlineOrdering;
+			//	new_mode.scalling	= displayModeList[i].Scaling;
+				
+				disp_modes.push_back(dmode);
+			}
+
+			_DELETE_ARRAY(displayModeList);
+  		}
+	
+		if ("Create Device")
+		{
+ 			ForArray(i, DT_count)
+			{
+ 				D3D_DRIVER_TYPE		DeviceType	= DriverTypes[i];
+ 				D3D_FEATURE_LEVEL	FeatureLevel;
+
+				IDXGIAdapter* adapter = NULL;	// used gpu device
+
+				OK << ::D3D11CreateDevice(adapter, DeviceType, NULL, DeviceFlags, FeatureLevels, FL_count, D3D11_SDK_VERSION, &pDevice, &FeatureLevel, &pContext);
+				
+				if (OK.IsSucceed()) 
+				{
+					mDeviceType		= DriverTypes[i];
+					mFeatureLevel	= FeatureLevel;
+					break;
+				}
+  			}
+
+			if (OK.IsFailed())
+				return false;
+
+			if ("Debug")
+			{
+ 			if (SUCCEEDED(pDevice->QueryInterface(__uuidof(ID3D11Debug), (void**)&d3dDebug)))
+				{
+					ID3D11InfoQueue *d3dInfoQueue = nullptr;
+					if (SUCCEEDED(d3dDebug->QueryInterface(__uuidof(ID3D11InfoQueue), (void**)&d3dInfoQueue)))
+					{
+#ifdef _DEBUG
+						d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
+						d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
+#endif
+ 						D3D11_MESSAGE_ID hide[] =
+						{
+							D3D11_MESSAGE_ID_SETPRIVATEDATA_CHANGINGPARAMS,
+							// Add more message IDs here as needed
+						};
+ 						D3D11_INFO_QUEUE_FILTER filter;
+						memset(&filter, 0, sizeof(filter));
+						filter.DenyList.NumIDs	= _countof(hide);
+						filter.DenyList.pIDList = hide;
+						d3dInfoQueue->AddStorageFilterEntries(&filter);
+						_RELEASE(d3dInfoQueue);
+ 					}
+					//d3dDebug->Release();
+				}
+			}
+   		}
+ 		if ("SwapChain")
+		{
+			DXGI_SWAP_CHAIN_DESC1			 SCD = {};
+			DXGI_SWAP_CHAIN_FULLSCREEN_DESC	FSCD = {};
+
+ 			switch (mRS.AAMode)
+			{
+			case AntiAliasingMode::NoAA:
+ 				
+				mRS.MSAA_SamplerCount = 1;
+				mRS.MSAA_QualityLevel = 0;
+ 				break;
+
+ 			case AntiAliasingMode::MSAA:
+ 				
+				bool msaa_test = CheckMSAASettings(mRS.MSAA_SamplerCount, mRS.MSAA_QualityLevel, true);
+				if (msaa_test == false)
+				{
+					mRS.AAMode = AntiAliasingMode::NoAA;
+					mRS.MSAA_SamplerCount = 1;
+					mRS.MSAA_QualityLevel = 0;
+				}
+				break;
+			 
+ 			}
+ 
+            log::debug << fmt::format("msaa: {} {}", mRS.MSAA_SamplerCount, mRS.MSAA_QualityLevel);
+			//////////////////////////////////////////////////////////////////////////
+			size_t RefN				= disp_modes[disp_modes.size() - 1].RefN;
+			size_t RefD				= disp_modes[disp_modes.size() - 1].RefD;
+			mRS.RenderCanvasWight = disp_modes[disp_modes.size() - 1].W;
+			mRS.RenderCanvasHeight	= disp_modes[disp_modes.size() - 1].H;
+			mRS.RenderCanvasWight = 800;
+			mRS.RenderCanvasHeight  = 600;
+ 
+		//=====================================================================// SwapChain mode
+ 			SCD.Width				= mRS.RenderCanvasWight;
+			SCD.Height				= mRS.RenderCanvasHeight;
+			SCD.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
+			SCD.Stereo				= FALSE;
+			SCD.SampleDesc.Count	= mRS.MSAA_SamplerCount;
+			SCD.SampleDesc.Quality	= mRS.MSAA_QualityLevel;
+			SCD.BufferUsage			= DXGI_USAGE_RENDER_TARGET_OUTPUT;
+			SCD.BufferCount			= 1;
+			SCD.Scaling				= DXGI_SCALING_STRETCH;
+			SCD.SwapEffect			= DXGI_SWAP_EFFECT_DISCARD;
+			SCD.AlphaMode			= DXGI_ALPHA_MODE_UNSPECIFIED;
+			SCD.Flags				= DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+		//=====================================================================// Fullscreen mode state
+			FSCD.RefreshRate.Numerator	 = RefN;
+			FSCD.RefreshRate.Denominator = RefD;
+			FSCD.ScanlineOrdering		 = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+			FSCD.Scaling				 = DXGI_MODE_SCALING_UNSPECIFIED;
+			FSCD.Windowed				 = !mRS.FullScreen;
+  
+			//////////////////////////////////////////////////////////////////////////
+  			//	IDXGIDevice*	dxgiDevice = 0;
+  			//	IDXGIAdapter*	dxgiAdapter = 0;
+  			//	IDXGIFactory*	dxgiFactory = 0;
+  			//	
+  			//	OK << pDevice->QueryInterface(__uuidof(IDXGIDevice),  (void**)&dxgiDevice);		 
+  			//	OK << dxgiDevice->GetParent	 (__uuidof(IDXGIAdapter), (void**)&dxgiAdapter);	 
+  			//	OK << dxgiAdapter->GetParent (__uuidof(IDXGIFactory), (void**)&dxgiFactory);	 
+ 			//	OK << dxgiFactory->CreateSwapChain(pDevice, &SCD, &pSwapChain);					 
+			//	OK << dxgiFactory->MakeWindowAssociation(mRS.WindowHwnd, DXGI_MWA_NO_ALT_ENTER);
+			//
+			//	_RELEASE(dxgiDevice);
+			//	_RELEASE(dxgiAdapter);
+			//	_RELEASE(dxgiFactory);
+
+			OK << pFactory->CreateSwapChainForHwnd(pDevice, mRS.WindowHwnd, &SCD, &FSCD, NULL, &pSwapChain);
+			OK << pFactory->MakeWindowAssociation(NULL, DXGI_MWA_NO_WINDOW_CHANGES | DXGI_MWA_NO_ALT_ENTER);
+ 		}
+	
+
+		if ("BackBuffer")
+		{
+			//SAFE_RELEASE(pBackBuffer)
+
+			OK << pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+			OK << pDevice->CreateRenderTargetView(pBackBuffer, NULL, &pRT_View);
+ 
+ 		}
+		if ("DepthStencil Buffer and Shader")
+		{
+			D3D11_TEXTURE2D_DESC			TexDesc	 = {};
+			D3D11_DEPTH_STENCIL_VIEW_DESC	ViewDesc = {};
+			D3D11_SHADER_RESOURCE_VIEW_DESC ShadDesk = {};
+ 
+			TexDesc.Width				= mRS.RenderCanvasWight;
+			TexDesc.Height				= mRS.RenderCanvasHeight;
+			TexDesc.MipLevels			= 1;
+			TexDesc.ArraySize			= 1;
+			TexDesc.MiscFlags			= 0;
+			TexDesc.CPUAccessFlags		= 0;
+			TexDesc.SampleDesc.Count	= mRS.MSAA_SamplerCount;
+			TexDesc.SampleDesc.Quality	= mRS.MSAA_QualityLevel;
+			TexDesc.Usage				= D3D11_USAGE_DEFAULT;
+			TexDesc.BindFlags			= D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+			TexDesc.Format				= DXGI_FORMAT_R32_TYPELESS;
+			//---------------------------------------------------------
+			ViewDesc.Flags				= 0;
+ 			ViewDesc.Texture2D.MipSlice = 0;
+			ViewDesc.Format				= DXGI_FORMAT_D32_FLOAT;
+			ViewDesc.ViewDimension		= (mRS.MSAA_SamplerCount < 1) ? D3D11_DSV_DIMENSION_TEXTURE2D : D3D11_DSV_DIMENSION_TEXTURE2DMS;
+			//---------------------------------------------------------
+  			ShadDesk.Format						= DXGI_FORMAT_R32_FLOAT;
+			ShadDesk.ViewDimension				= (mRS.MSAA_SamplerCount < 1) ? D3D11_SRV_DIMENSION_TEXTURE2D : D3D11_SRV_DIMENSION_TEXTURE2DMS;
+			ShadDesk.Texture2D.MostDetailedMip	= 0;
+			ShadDesk.Texture2D.MipLevels		= -1;
+ 
+  			OK << pDevice->CreateTexture2D(&TexDesc, NULL, &pDS_Buffer);
+ 			OK << pDevice->CreateDepthStencilView	(pDS_Buffer, &ViewDesc, &pDS_View);
+ 			OK << pDevice->CreateShaderResourceView	(pDS_Buffer, &ShadDesk,	&pDS_ShaderView);
+
+			 
+// 			D3D11_DEPTH_STENCIL_DESC DSD = {};
+// 
+//  		DSD.DepthEnable						= true;
+// 			DSD.StencilEnable					= true;
+// 			DSD.DepthWriteMask					= D3D11_DEPTH_WRITE_MASK_ALL;
+// 			DSD.DepthFunc						= D3D11_COMPARISON_LESS;
+// 			DSD.StencilReadMask					= D3D11_DEFAULT_STENCIL_READ_MASK;		// 0xFF;
+// 			DSD.StencilWriteMask				= D3D11_DEFAULT_STENCIL_WRITE_MASK;		// 0xFF;
+// 			DSD.FrontFace.StencilFailOp			= D3D11_STENCIL_OP_KEEP;				//	FrontFace STENCIL_OP_KEEP
+// 			DSD.FrontFace.StencilDepthFailOp	= D3D11_STENCIL_OP_INCR;				//	FrontFace STENCIL_OP_INCR  (INCR)
+// 			DSD.FrontFace.StencilPassOp			= D3D11_STENCIL_OP_KEEP;				//	FrontFace STENCIL_OP_KEEP
+// 			DSD.FrontFace.StencilFunc			= D3D11_COMPARISON_ALWAYS;				//	FrontFace COMPARISON_ALWAYS
+// 			DSD.BackFace.StencilFailOp			= D3D11_STENCIL_OP_KEEP;				//	BackFace  STENCIL_OP_KEEP
+// 			DSD.BackFace.StencilDepthFailOp		= D3D11_STENCIL_OP_DECR;				//	BackFace  STENCIL_OP_DECR  (DECR)
+// 			DSD.BackFace.StencilPassOp			= D3D11_STENCIL_OP_KEEP;				//	BackFace  STENCIL_OP_KEEP
+// 			DSD.BackFace.StencilFunc			= D3D11_COMPARISON_ALWAYS;				//	BackFace  COMPARISON_ALWAYS
+// 
+////////////////////////////////////////////////////////////////////////////
+// 
+// 			OK = pDevice->CreateDepthStencilState(&DSD, &r_Depth_Stencil_State_Z_ON);  OK == ("CreateDepthStencilView error");	// С глубиной
+// 
+// 			DSD.DepthEnable = false;
+// 
+// 			OK = pDevice->CreateDepthStencilState(&DSD, &r_Depth_Stencil_State_Z_OFF); OK == ("CreateDepthStencilView error");		// Без глубины
+		}
+  
+		return OK.IsSucceed();
+	}
+ 
+	bool gpu_api_init_topologys		() 
+	{
+		if (!pDevice)
+			return false;
+
+			Topologys[(size_t)TopologyMode::PointList]	  = new size_t( D3D_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_POINTLIST	);
+			Topologys[(size_t)TopologyMode::LineList]	  = new size_t( D3D_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_LINELIST		);
+			Topologys[(size_t)TopologyMode::LineStrip]	  = new size_t( D3D_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_LINESTRIP	);
+			Topologys[(size_t)TopologyMode::TriangleList] = new size_t( D3D_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST	);
+			Topologys[(size_t)TopologyMode::TriangleStrip]= new size_t( D3D_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+ 
+		return true;
+	}
+	bool gpu_api_init_samplers		()
+	{
+		if (!pDevice)
+			return false;
+
+		D3D11_SAMPLER_DESC SD = {};
+ 
+		SD.AddressU			= D3D11_TEXTURE_ADDRESS_WRAP;
+		SD.AddressV			= D3D11_TEXTURE_ADDRESS_WRAP;
+		SD.AddressW			= D3D11_TEXTURE_ADDRESS_WRAP;
+ 		SD.ComparisonFunc	= D3D11_COMPARISON_NEVER;
+ 		SD.MinLOD			= -FLT_MAX;
+		SD.MaxLOD			= +FLT_MAX;
+		SD.MaxAnisotropy	= mRS.AnisotropicQuality;
+ 		SD.MipLODBias		= 0.0f;
+		SD.BorderColor[0]	= 1.0f;
+		SD.BorderColor[1]	= 1.0f;
+		SD.BorderColor[2]	= 1.0f;
+		SD.BorderColor[3]	= 1.0f;
+  
+		D3D11_SAMPLER_DESC NearPix		(SD);
+		D3D11_SAMPLER_DESC Bilinear		(SD);
+		D3D11_SAMPLER_DESC Trilinear	(SD);
+		D3D11_SAMPLER_DESC Anysotropic	(SD);
+ 
+ 		NearPix.	Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+		Bilinear.	Filter = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+		Trilinear.	Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+ 		Anysotropic.Filter = D3D11_FILTER_ANISOTROPIC;
+
+		RESULT OK;
+
+ 		OK << pDevice->CreateSamplerState(&NearPix,		&Samplers[(size_t)SamplerMode::NearPixel]	);	//OK == (ERROR_TEX);
+  		OK << pDevice->CreateSamplerState(&Bilinear,	&Samplers[(size_t)SamplerMode::Bilinear]	);	//OK == (ERROR_TEX);
+  		OK << pDevice->CreateSamplerState(&Trilinear,	&Samplers[(size_t)SamplerMode::Trilinear]	);	//OK == (ERROR_TEX);
+ 		OK << pDevice->CreateSamplerState(&Anysotropic,	&Samplers[(size_t)SamplerMode::Anysotropic]	);	//OK == (ERROR_TEX);
+
+		return OK.IsSucceed();
+	}
+	bool gpu_api_init_rasterizers	()
+	{
+		if (!pDevice)
+			return false;
+
+		D3D11_RASTERIZER_DESC RD = {};	// Default
+
+		RD.FillMode				 = D3D11_FILL_SOLID;
+		RD.CullMode				 = D3D11_CULL_NONE;
+		RD.FrontCounterClockwise = FALSE;
+		RD.DepthBias			 = 0;
+		RD.SlopeScaledDepthBias  = 0.0f;
+		RD.DepthBiasClamp		 = 0.0f;
+		RD.DepthClipEnable		 = true;
+		RD.ScissorEnable		 = false;
+		RD.MultisampleEnable	 = mRS.MSAA_SamplerCount > 1 ? true : false;
+		RD.AntialiasedLineEnable = false; //толстые линии вроде
+
+		//RD.FrontCounterClockwise = true;
+
+		D3D11_RASTERIZER_DESC RD_WIRE(RD);
+		D3D11_RASTERIZER_DESC RD_ALL (RD);
+		D3D11_RASTERIZER_DESC RD_IN  (RD);
+		D3D11_RASTERIZER_DESC RD_OUT (RD);
+
+		RD_WIRE.FillMode	= D3D11_FILL_WIREFRAME;
+		RD_ALL.FillMode		= D3D11_FILL_SOLID;
+		RD_IN.FillMode		= D3D11_FILL_SOLID;
+		RD_OUT.FillMode		= D3D11_FILL_SOLID;
+
+		RD_WIRE.CullMode	= D3D11_CULL_NONE;
+		RD_ALL.CullMode		= D3D11_CULL_NONE;
+		RD_IN.CullMode		= D3D11_CULL_FRONT;
+		RD_OUT.CullMode		= D3D11_CULL_BACK;
+
+		RESULT OK;
+
+		OK << pDevice->CreateRasterizerState(&RD_WIRE,	&Rasterizers[(size_t)RasteriserMode::Wireframe]	);
+		OK << pDevice->CreateRasterizerState(&RD_ALL,	&Rasterizers[(size_t)RasteriserMode::AllSides]	);
+		OK << pDevice->CreateRasterizerState(&RD_IN,	&Rasterizers[(size_t)RasteriserMode::InSide]	);
+		OK << pDevice->CreateRasterizerState(&RD_OUT,	&Rasterizers[(size_t)RasteriserMode::OutSide]	);
+	
+		return OK.IsSucceed();
+ 	}
+	bool gpu_api_init_blenders		()
+	{
+		if (!pDevice)
+			return false;
+ 
+		D3D11_BLEND_DESC BD = {};
+ 
+		BD.AlphaToCoverageEnable	= false;	// чето там для мультисеплинга перекрывающихся прорачных полигонов типа листвы
+		BD.IndependentBlendEnable	= false;	// используется только 1 элемент массива, остальные 7 игнорируются
+
+ 		BD.RenderTarget[0].BlendEnable			 = FALSE;
+		BD.RenderTarget[0].SrcBlend				 = D3D11_BLEND_ONE;
+		BD.RenderTarget[0].DestBlend			 = D3D11_BLEND_INV_SRC_ALPHA;
+		BD.RenderTarget[0].BlendOp				 = D3D11_BLEND_OP_ADD;
+		BD.RenderTarget[0].SrcBlendAlpha		 = D3D11_BLEND_ONE;
+		BD.RenderTarget[0].DestBlendAlpha		 = D3D11_BLEND_ZERO;
+		BD.RenderTarget[0].BlendOpAlpha			 = D3D11_BLEND_OP_ADD;
+		BD.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+		
+		D3D11_BLEND_DESC BD_Alpha		(BD);
+		D3D11_BLEND_DESC BD_NoAlpha		(BD);
+		D3D11_BLEND_DESC BD_Transperent	(BD);
+ 
+		BD_Alpha.	   RenderTarget[0].BlendEnable = FALSE;
+		BD_NoAlpha.	   RenderTarget[0].BlendEnable = FALSE;
+		BD_Transperent.RenderTarget[0].BlendEnable = TRUE;
+
+		BD_Transperent.RenderTarget[0].SrcBlend					= D3D11_BLEND_SRC_ALPHA;
+		BD_Transperent.RenderTarget[0].DestBlend				= D3D11_BLEND_INV_SRC_ALPHA;
+		BD_Transperent.RenderTarget[0].BlendOp					= D3D11_BLEND_OP_ADD;
+		BD_Transperent.RenderTarget[0].SrcBlendAlpha			= D3D11_BLEND_ZERO;
+		BD_Transperent.RenderTarget[0].DestBlendAlpha			= D3D11_BLEND_ZERO;
+		BD_Transperent.RenderTarget[0].BlendOpAlpha				= D3D11_BLEND_OP_ADD;
+		BD_Transperent.RenderTarget[0].RenderTargetWriteMask	= D3D11_COLOR_WRITE_ENABLE_ALL;
+
+		RESULT OK;
+		 
+		OK << pDevice->CreateBlendState(&BD_Transperent, &Blenders[(size_t)BlendMode::Translucent]	);
+		OK << pDevice->CreateBlendState(&BD_NoAlpha,	 &Blenders[(size_t)BlendMode::Opaque]		);
+ 		OK << pDevice->CreateBlendState(&BD_Alpha,		 &Blenders[(size_t)BlendMode::AlphaMasked]		);
+
+		return OK.IsSucceed();
+	}
+
+	//  gpu api - RENDERER STATE
+ 
+	void gpu_api_TurnZBufferOn		() {}
+	void gpu_api_TurnZBufferOff		() {}
+
+	void gpu_api_BindTopology	(Topology	*arg) { pContext->IASetPrimitiveTopology((D3D11_PRIMITIVE_TOPOLOGY)*arg);	}
+	void gpu_api_BindSampler	(Sampler	*arg) { pContext->PSSetSamplers			(0,1,(&arg));						}
+	void gpu_api_BindRasterizer	(Rasterizer	*arg) { pContext->RSSetState			(arg);								}
+	void gpu_api_BindBlender    (Blender	*arg) { pContext->OMSetBlendState		(arg, NULL, 0xffffffff);			}
+
+
+
+    gpuVertexBuffer* gpu_api_generate_vbuffer(void* data, size_t data_size, bool cpu_acsess)
+    {
+        D3D11_BUFFER_DESC	   Setting  = {};
+        D3D11_SUBRESOURCE_DATA Resourse = {};
+
+        Setting.Usage           = cpu_acsess ? D3D11_USAGE_DYNAMIC : D3D11_USAGE_DEFAULT;
+        Setting.BindFlags       = D3D11_BIND_VERTEX_BUFFER;
+        Setting.ByteWidth       = data_size;
+        Setting.CPUAccessFlags  = cpu_acsess ? D3D11_CPU_ACCESS_WRITE : 0;
+
+        Resourse.pSysMem = data;
+
+        gpuVertexBuffer* buffer = new gpuVertexBuffer;
+
+        RESULT OK;
+        OK << pDevice->CreateBuffer(&Setting, &Resourse, &buffer->ptr);
+
+        if (OK.Failed())
+        {
+            _RELEASE(buffer);
+            return nullptr;
+        }
+
+        return buffer;
+    }
+    gpuIndexBuffer*  gpu_api_generate_ibuffer(void* data, size_t data_size, bool cpu_acsess)
+    {
+        D3D11_BUFFER_DESC	   Setting = {};
+        D3D11_SUBRESOURCE_DATA Resourse = {};
+
+        Setting.Usage          = cpu_acsess ? D3D11_USAGE_DYNAMIC : D3D11_USAGE_DEFAULT;
+        Setting.BindFlags      = D3D11_BIND_INDEX_BUFFER;
+        Setting.ByteWidth      = data_size;
+        Setting.CPUAccessFlags = cpu_acsess ? D3D11_CPU_ACCESS_WRITE : 0;
+
+        Resourse.pSysMem = data;
+
+
+        gpuIndexBuffer* buffer = new gpuIndexBuffer;
+
+        RESULT OK;
+        OK << pDevice->CreateBuffer(&Setting, &Resourse, &buffer->ptr);
+
+        if (OK.Failed())
+        {
+            _RELEASE(buffer);
+            return nullptr;
+        }
+
+        return buffer;
+    }
+    gpuConstBuffer*  gpu_api_generate_cbuffer(void* data, size_t data_size, bool cpu_acsess)
+    {
+        GetImpl()->uid();        
+        return nullptr;
+    }
+
+
+    //--------------------------------------------------------------------------//  RShader
+    
+    gpuShaderVS* gpu_api_compilite_vertex_shader(const std::string& asci_code, const InputSemantic& ied)
+    {
+        gpuShaderVS* newVS = new gpuShaderVS;
+        newVS->ptr = DX_CompileVertexShader(pDevice, asci_code, "VertexShader", ied , &newVS->input);
+
+        if (!newVS->ptr)
+        {
+            _RELEASE(newVS);
+            return nullptr;
+        }
+        return newVS;
+    }
+    gpuShaderPS* gpu_api_compilite_pixel_shader (const std::string& asci_code)
+    {
+        gpuShaderPS* newVS = new gpuShaderPS;
+        newVS->ptr = DX_CompilePixelShader(pDevice, asci_code, "PixelShader");
+
+        if (!newVS->ptr)
+        {
+            _RELEASE(newVS);
+            return nullptr;
+        }
+        return newVS;
+    }
+
+private:
+
+	bool CheckMSAASettings(UINT Samples, UINT Qality, bool NeedReport = true)
+	{
+		RESULT OK;
+		bool CheckResult = false;
+		UINT SamplerMaxQ = 0;
+
+		if (false == math::InRange(Samples, 1U, 8U))  return false;
+		if (false == math::InRange(Qality,  0U, 32U)) return false;
+		 
+		OK << pDevice->CheckMultisampleQualityLevels(DXGI_FORMAT_R8G8B8A8_UNORM, Samples, &SamplerMaxQ);
+ 
+		if (false == math::InRange(Qality, 0U, SamplerMaxQ--))
+		{
+			if (NeedReport)
+			{
+				string sms = fmt::format("MSAA options error : S/Q [{}/{}]. AA will not be used", Samples, Qality);
+				log::debug << (sms);
+			}
+ 			return false;
+		}
+ 
+		return true;
+	}
+
+
+
+
+};

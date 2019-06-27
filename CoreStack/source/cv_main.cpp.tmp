@@ -1,0 +1,2979 @@
+#include "pch.h"
+#include "bitmap.h"
+#include "opencv.h"
+#include "../lodepng/lodepng.h"
+
+#pragma comment (lib, "opengl32.lib")
+
+namespace cv_tests
+{
+	using namespace std;
+	using namespace cv;
+	//using namespace cv::xfeatures2d;
+
+	const int MAX_FEATURES = 500;
+	const float GOOD_MATCH_PERCENT = 0.15f;
+
+
+	std::string cv_dir = "D:\\_ram\\cv\\";
+
+	void alignImages(Mat &im1, Mat &im2, Mat &im1Reg, Mat &h)
+	{
+
+		// Convert images to grayscale
+		Mat im1Gray, im2Gray;
+		cvtColor(im1, im1Gray, CV_BGR2GRAY);
+		cvtColor(im2, im2Gray, CV_BGR2GRAY);
+ 
+
+		// Variables to store keypoints and descriptors
+		std::vector<KeyPoint> keypoints1, keypoints2;
+		Mat descriptors1, descriptors2;
+
+ 
+
+		// Detect ORB features and compute descriptors.
+		Ptr<Feature2D> orb = ORB::create(MAX_FEATURES);
+		//orb->detectAndCompute(im1Gray, Mat(), keypoints1, descriptors1);
+		//orb->detectAndCompute(im2Gray, Mat(), keypoints2, descriptors2);
+		try
+		{
+  			orb->detect(im1Gray, keypoints1, Mat());
+			orb->compute(im1Gray, keypoints1, descriptors1);
+
+			orb->detect(im2Gray, keypoints2, Mat());
+			orb->compute(im2Gray, keypoints2, descriptors2);
+		}
+		catch (const std::exception& e)
+		{
+			string aaa = e.what();
+		}
+		// Match features.
+		std::vector<DMatch> matches;
+		Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce-Hamming");
+		matcher->match(descriptors1, descriptors2, matches, Mat());
+
+		// Sort matches by score
+		std::sort(matches.begin(), matches.end());
+
+		// Remove not so good matches
+		const int numGoodMatches = matches.size() * GOOD_MATCH_PERCENT;
+		matches.erase(matches.begin() + numGoodMatches, matches.end());
+
+
+		// Draw top matches
+		Mat imMatches;
+		drawMatches(im1, keypoints1, im2, keypoints2, matches, imMatches);
+		imwrite(cv_dir + "3.jpg", imMatches);
+
+
+		// Extract location of good matches
+		std::vector<Point2f> points1, points2;
+
+		for (size_t i = 0; i < matches.size(); i++)
+		{
+			points1.push_back(keypoints1[matches[i].queryIdx].pt);
+			points2.push_back(keypoints2[matches[i].trainIdx].pt);
+		}
+
+		// Find homography
+		h = findHomography(points1, points2, RANSAC);
+
+		// Use homography to warp image
+		warpPerspective(im1, im1Reg, h, im2.size());
+
+	}
+
+
+	int cv_main()
+	{
+		// Read reference image
+		string refFilename(cv_dir + "1.jpg");
+		cout << "Reading reference image : " << refFilename << endl;
+		Mat imReference = imread(refFilename);
+
+
+		// Read image to be aligned
+		string imFilename(cv_dir + "2.jpg");
+		cout << "Reading image to align : " << imFilename << endl;
+		Mat im = imread(imFilename);
+ 
+
+		// Registered image will be resotred in imReg. 
+		// The estimated homography will be stored in h. 
+		Mat imReg, h;
+
+		// Align images
+		cout << "Aligning images ..." << endl;
+		alignImages(im, imReference, imReg, h);
+
+		// Write aligned image to disk. 
+		string outFilename(cv_dir + "4.jpg");
+		cout << "Saving aligned image : " << outFilename << endl;
+		imwrite(outFilename, imReg);
+
+		// Print estimated homography
+		cout << "Estimated homography : \n" << h << endl;
+
+		return 0;
+	}
+
+
+	void open_cv_rec_img()
+	{
+
+		cv_main();
+ 
+	}
+
+	 
+
+
+}
+
+ 
+namespace gl_test
+{
+	struct gl_gpu_texture : gpu_texture
+	{
+	public:
+
+		void CreateUpdateData(BITMAP_RGBA& bitmap)
+		{
+			if (get_size() != INT2(bitmap.w, bitmap.h))
+			{
+				texture_state state;
+
+				state.w = bitmap.w;
+				state.h = bitmap.h;
+				state.mip_levels = 1;
+
+				gpu_texture::Create(state, bitmap.data);
+			}
+
+			gpu_texture::UpdateData((void*)(bitmap.data));
+		}
+
+
+		void BindSampler(gpu_sampler& sampler)
+		{
+			gl_bind();
+			sampler.Bind();
+			_unbind();
+		}
+
+	protected:
+
+
+	};
+
+
+
+	void print_gl_caps()
+	{
+		int max;
+		log::debug << str::format::insert("GL device caps:");
+
+		glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max);			log::debug << str::format::insert("MAX_TEXTURE_SIZE: {}", max);
+		glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &max);	log::debug << str::format::insert("GL_MAX_TEXTURE_IMAGE_UNITS: {}", max);
+
+
+
+	}
+
+
+};
+
+using namespace gl_test;
+
+ 
+struct ScreenGrabber
+{
+
+	HDC     hScreen;
+	HDC     hCaptureDC;
+	HBITMAP hCaptureBitmap;
+	HGDIOBJ hOld;
+
+	inline BITMAP_RGBA Grab (QUAD rect)
+	{
+ 
+		int x1	= rect.left;
+		int x2	= rect.right;
+ 		int y1	= rect.top;
+		int y2	= rect.bottom;
+ 		int w	= x2 - x1;
+		int h	= y2 - y1;
+
+		hScreen = GetDC(NULL);
+		hCaptureDC = CreateCompatibleDC(hScreen);
+		hCaptureBitmap = CreateCompatibleBitmap(hScreen, w, h);
+		hOld = SelectObject(hCaptureDC, hCaptureBitmap);
+
+		BOOL bRet = BitBlt(hCaptureDC, 0, 0, w, h, hScreen, x1, y1, SRCCOPY);
+
+		BITMAPINFO MyBMInfo = { 0 };
+		MyBMInfo.bmiHeader.biSize = sizeof(MyBMInfo.bmiHeader);
+
+		// Get the BITMAPINFO structure from the bitmap
+		if (0 == GetDIBits(hCaptureDC, hCaptureBitmap, 0, 0, NULL, &MyBMInfo, DIB_RGB_COLORS))
+		{
+			GetImpl()->uid();
+		}
+
+		BYTE* lpPixels = new BYTE[MyBMInfo.bmiHeader.biSizeImage];
+		MyBMInfo.bmiHeader.biCompression = BI_RGB;
+		MyBMInfo.bmiHeader.biHeight = -h;
+		MyBMInfo.bmiHeader.biWidth	= w;
+
+		if (0 == GetDIBits(hCaptureDC, hCaptureBitmap, 0, MyBMInfo.bmiHeader.biHeight, (LPVOID)lpPixels, &MyBMInfo, DIB_RGB_COLORS))
+		{
+			GetImpl()->uid();
+		}
+
+		SelectObject(hCaptureDC, hOld);
+		DeleteDC(hCaptureDC);
+		ReleaseDC(NULL, hScreen);
+		DeleteObject(hCaptureBitmap);
+		
+		BITMAP_RGBA out;
+		out.data = (PIXEL_RGBA_256*)lpPixels;
+		out.w = w;
+		out.h = h;
+	 
+		return out;
+	}
+	inline BITMAP_RGBA Capture	(QUAD rect, INT2 coord)
+	{
+		RESULT OK;
+
+		//////////////////////////////////////////////////////////////////////////
+ 		HWND hPointWindow = WindowFromPoint({ coord.x, coord.y });
+		HWND hTopWindow   = GetParent(hPointWindow);
+
+		//while (hTopWindow != NULL)
+		//{
+		//	hPointWindow = hTopWindow;
+		//	hTopWindow = GetParent(hPointWindow);
+		//}
+		hTopWindow = hPointWindow;
+
+ 		POINT P{ coord.x, coord.y };
+ 		ScreenToClient(hPointWindow, &P);
+ 
+ 		int x1	= P.x + rect.left;
+		int x2	= P.x + rect.right;
+		int y1	= P.y + rect.top;
+		int y2	= P.y + rect.bottom;
+		int w	= x2 - x1;
+		int h	= y2 - y1;
+		//////////////////////////////////////////////////////////////////////////
+
+// 		if (hPointWindow)
+// 		{
+// 		}
+
+		{
+// 			    size_t w = WindowSize.right - WindowSize.left;
+// 				size_t h = WindowSize.bottom - WindowSize.top;
+//   
+// 				//PrintWindow(hMouseWindow, CaptureDC, 0);
+// 				SelectObject(DevC, hOld);
+// 
+// 
+// 				BITMAPINFOHEADER bmi = {0};
+// 				bmi.biSize          = sizeof(BITMAPINFOHEADER);
+// 				bmi.biPlanes        = 1;
+// 				bmi.biBitCount      = 32;
+// 				bmi.biWidth         = w;
+// 				bmi.biHeight        = -h;
+// 				bmi.biCompression   = BI_RGB;
+// 				bmi.biSizeImage     = w*h*3;// 3 * ScreenX * ScreenY;
+//     
+// 				static BYTE* Data = nullptr;
+// 
+// 				if (Data)
+// 					free(Data);
+// 				Data = (BYTE*)malloc(4 * w * h);
+// 
+// 				GetDIBits(DevC, CaptureBitmap, 0, h, Data, (BITMAPINFO*)&bmi, DIB_RGB_COLORS);
+ 
+		}
+		hScreen			= GetDC(hTopWindow/*NULL*/);
+		hCaptureDC		= CreateCompatibleDC(hScreen);
+		hCaptureBitmap	= CreateCompatibleBitmap(hScreen, w, h);
+
+		OK << S_FALSE;
+
+
+		hOld			= SelectObject(hCaptureDC, hCaptureBitmap);
+
+		//////////////////////////////////////////////////////////////////////////
+
+
+ 		if (0 == BitBlt(hCaptureDC, 0, 0, w, h, hScreen, x1, y1, SRCCOPY | CAPTUREBLT))
+		{
+			GetImpl()->uid();
+		}
+   
+		BITMAPINFO MyBMInfo = { 0 };
+		MyBMInfo.bmiHeader.biSize = sizeof(MyBMInfo.bmiHeader);
+
+		// Get the BITMAPINFO structure from the bitmap
+		if (0 == GetDIBits(hCaptureDC, hCaptureBitmap, 0, 0, NULL, &MyBMInfo, DIB_RGB_COLORS))
+		{
+
+			OK << GetLastError();
+
+			GetImpl()->uid();
+		}
+
+		BYTE* lpPixels = new BYTE[MyBMInfo.bmiHeader.biSizeImage];
+		MyBMInfo.bmiHeader.biCompression = BI_RGB;
+		MyBMInfo.bmiHeader.biHeight = -h;
+		MyBMInfo.bmiHeader.biWidth	= w;
+
+		if (0 == GetDIBits(hCaptureDC, hCaptureBitmap, 0, MyBMInfo.bmiHeader.biHeight, (LPVOID)lpPixels, &MyBMInfo, DIB_RGB_COLORS))
+		{
+			GetImpl()->uid();
+		}
+
+		SelectObject(hCaptureDC, hOld);
+		DeleteDC(hCaptureDC);
+		ReleaseDC(NULL, hScreen);
+		DeleteObject(hCaptureBitmap);
+
+		BITMAP_RGBA out;
+		out.data = (PIXEL_RGBA_256*)lpPixels;
+		out.w = w;
+		out.h = h;
+  
+		return out;
+	}
+
+
+
+
+};
+ 
+
+
+class MyInputReader : public InputHandler
+{
+//	inline void MouseMove		(const MouseEvent&		e)	{ std::cout<< fmt::format("MouseMove ({},{})\n",e.x,e.y); };
+//	inline void MouseWheel		(const MouseWheelEvent&	e)	{ std::cout<< fmt::format("MouseWheel		",0); };
+//	inline void MousePress		(const MouseClickEvent& e)	{ std::cout<< fmt::format("MousePress		",0); };
+//	inline void MouseRelease	(const MouseClickEvent& e)	{ std::cout<< fmt::format("MouseRelease		",0); };
+//	inline void KeyPress		(const KeyEvent&		e)	{ std::cout<< fmt::format("KeyPress			",0); };
+//	inline void KeyReleas		(const KeyEvent&		e)	{ std::cout<< fmt::format("KeyReleas		",0); };
+	inline void ExInputHandler	(const os_window_event_sms& e)	
+	{ 
+		auto msg	= e.msg;
+		auto lParam = e.lp;
+		auto wParam = e.wp;
+
+		ImGuiIO& io = ImGui::GetIO();
+
+		switch (msg)
+		{
+		case WM_LBUTTONDOWN:									io.MouseDown[0] = true;	 break;
+		case WM_LBUTTONUP:										io.MouseDown[0] = false; break;
+		case WM_RBUTTONDOWN:									io.MouseDown[1] = true;	 break;
+		case WM_RBUTTONUP:										io.MouseDown[1] = false; break;
+		case WM_MBUTTONDOWN:									io.MouseDown[2] = true;	 break;
+		case WM_MBUTTONUP:										io.MouseDown[2] = false; break;
+		case WM_MOUSEWHEEL:										io.MouseWheel  += GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? +1.0f : -1.0f; break;
+		case WM_MOUSEMOVE:										io.MousePos.x	= (signed short)(lParam);
+																io.MousePos.y	= (signed short)(lParam >> 16);	break;
+		case WM_KEYDOWN:	if (wParam < 256)					io.KeysDown[wParam] = 1; break;
+		case WM_KEYUP:		if (wParam < 256)					io.KeysDown[wParam] = 0; break;
+		case WM_CHAR:		if (wParam > 0 && wParam < 0x10000) io.AddInputCharacter((unsigned short)wParam);// You can also use ToAscii()+GetKeyboardState() to retrieve characters.
+			break;
+		}
+		 
+
+		//std::cout<< fmt::format("ExInputHandler",0); 
+	}
+};
+
+
+template<typename T>
+static bool rand_test(std::function<T(T,T)> f, T min, T max)
+{
+	auto p1     = f(min, max);
+	auto p2     = f(min, max);
+	auto Lrange = math::min(p1, p2);
+	auto Rrange = math::max(p1, p2);
+	auto random = f(Lrange, Rrange);
+
+	std::cout << str::format::insert("[{}] {} | {} | {}\n", typeid(T).name(), Lrange, random, Rrange);
+ 
+	return math::InRange(random, Lrange, Rrange);
+}
+
+ 
+constexpr char shader_POS_TEX[] =
+" 	Texture2D	 ObjTexture		 : register(t0);				\n"
+" 	SamplerState ObjSamplerState : register(s0);	 			\n"
+"																\n"
+"	struct VS_INPUT									  			\n"
+"	{															\n"
+"		float4 Pos	: POSITION;					  				\n"
+"		float2 Tex	: TEXCOORD;									\n"
+"	};															\n"
+"	struct VS_OUT									  			\n"
+"	{												  			\n"
+"		float4 Pos	: SV_POSITION;					  			\n"
+"		float2 Tex	: TEXCOORD0;								\n"
+"	};												  			\n"
+" 													  			\n"
+"	VS_OUT VS(VS_INPUT In)										\n"
+"	{												  			\n"
+"		VS_OUT Out;								  				\n"
+"		Out.Pos = In.Pos;							  			\n"
+"		Out.Tex = In.Tex;										\n"
+"		return Out;								  				\n"
+"     }												  			\n"
+" 													  			\n"
+"     float4 PS(VS_OUT In) : SV_Target				  			\n"
+"     {												  			\n"
+"         return ObjTexture.Sample(ObjSamplerState, In.Tex);	\n"
+"     }															\n";
+ 
+ 
+
+const string shader_text =
+"    struct VS_OUT                       "
+"    {                                   "
+"    float4 Pos   : SV_POSITION;         "
+"    float4 Color : COLOR;               "
+"    };                                  "
+"                                        "
+"    VS_OUT VS                           "
+"    (                                   "
+"        float4 Pos   : POSITION,        "
+"        float4 Color : COLOR            "
+"    )                                   "
+"    {                                   "
+"        VS_OUT Out;                     "
+"        Out.Pos   = Pos;                "
+"        Out.Color = Color;              "
+"        return Out;                     "
+"    }                                   "
+"                                        "
+"    float4 PS(VS_OUT In) : SV_Target    "
+"    {                                   "
+"        return In.Color;                "
+"    }                                   ";
+
+const string shader_text_ptn =
+ 
+"    struct VS_OUT                       "
+"    {                                   "
+"    float4 Pos   : SV_POSITION;         "
+"    float4 Color : COLOR;               "
+"    };                                  "
+"                                        "
+"    VS_OUT VS                           "
+"    (                                   "
+"        float4 Pos     : POSITION,      "
+"        float2 Tex     : TEXCOORD,      "
+"        float4 Normal  : NORMAL         "
+"    )                                   "
+"    {                                   "
+"        VS_OUT Out;                     "
+"        Out.Pos   = Pos;                "
+"        Out.Color = float4(Tex,Tex)*Normal; "
+"        return Out;                     "
+"    }                                   "
+"                                        "
+"    float4 PS(VS_OUT In) : SV_Target    "
+"    {                                   "
+"        return In.Color;                "
+"    }                                   ";
+
+
+
+class ShaderCompiliter
+{
+             
+};
+
+
+class Render : public gpu_drawer
+{
+public:
+    Render() : DEF_UCLASS("Render(dx11_fabric)", modules{ /*module_dx11*/ })
+    {
+
+    }
+
+
+	virtual bool Init(const RenderOptions& RO)
+	{
+		mRS = RO;
+
+		if (!InitDevice		()) { log::info << "InitDevice error";        return false; }
+		if (!InitTopologys	()) { log::info << "InitTopologys error";     return false; }
+		if (!InitSamplers	()) { log::info << "InitSamplers error";      return false; }
+		if (!InitRasterizers()) { log::info << "InitRasterizers error";   return false; }
+		if (!InitBlenders	()) { log::info << "InitBlenders error";      return false; }
+
+		return true;
+	}
+    virtual void Release()
+    {
+		// todo
+	}
+   
+   
+public:
+
+	void SetSize		(size_t w, size_t h)
+	{
+		if (w == 0 || h == 0) 
+		{
+			log::debug << fmt::format("Resized: {} - {}", w, h);
+			log::debug << fmt::format("Warning! [x0] resolution setted. Resize skiped.");
+
+			return;
+ 		}
+ 
+		//////////////////////////////////////////////////////////////////////////
+ 		log::debug << fmt::format("Resized: {} - {}", w, h);
+		ResizeOutput(w, h);
+ 	}
+ 	void NotifyFocus	(bool focused) 
+	{
+		mRS.IsFocused = focused;
+	}
+
+	void Paint()
+	{ 
+ 
+		static FLOAT4 ColorReal = { 0,0,0,0 };
+		static FLOAT4 ColorGo	= { 0,0,0,0 };
+
+		if (math::equal(ColorReal, ColorGo, 0.001))
+		{
+			ColorGo.x = math::RandomFastReal(0.0, 1.0);
+			ColorGo.y = math::RandomFastReal(0.0, 1.0);
+			ColorGo.z = math::RandomFastReal(0.0, 1.0);
+		}
+		else
+		{
+			ColorReal.x += (ColorGo.x - ColorReal.x) / 500.0;
+			ColorReal.y += (ColorGo.y - ColorReal.y) / 500.0;
+			ColorReal.z += (ColorGo.z - ColorReal.z) / 500.0;
+		}
+  
+ 
+        gpu_drawer::SetRenderTargets (_main_rt.GetRenderTarget(), _main_ds.GetDepthStencil());
+        gpu_drawer::ClearRenderTarget(_main_rt.GetRenderTarget(), ColorReal);
+        gpu_drawer::ClearDepthStencil(_main_ds.GetDepthStencil(), DepthStencilClearMode::ClearFull);
+ 
+        gpu_drawer::BindTopology	(TopologyMode::TriangleList);
+        gpu_drawer::BindSampler		(TextureSamplerMode::Near);
+        gpu_drawer::BindRasterizer	(RasteriserMode::BothSides);
+        gpu_drawer::BindBlender		(ColorBlendMode::Opaque);
+
+
+        static gpu_texture			RenderCopy;
+        static gpu_shader_resourse	RenderCopyRes;
+        
+ 
+ 
+        if (TRUE && "3d"    )
+        {
+ 
+        }
+		
+
+
+		if (TRUE && "imgui" )
+		{
+			static ImGuiImpl igp;
+
+ 			ImGui::GetIO().IniFilename = NULL;
+			ImGui::GetIO().LogFilename = NULL;
+
+  			MakeOnce
+			{
+				IMGUI_CHECKVERSION();
+				ImGui::CreateContext();
+
+				igp.ImplInit(this);
+
+				ImGuiIO& io = ImGui::GetIO();
+				io.Fonts->Clear();
+
+				//ImFontConfig icons_config;
+				//icons_config.MergeMode  = true;
+				//icons_config.PixelSnapH = true;
+
+				io.Fonts->AddFontDefault();
+				io.Fonts->AddFontFromFileTTF("assets\\fonts\\DroidSans.ttf", 16.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+
+				//io.Fonts->AddFontFromFileTTF("..\\Data\\Fonts\\ttf\\icons-Awesome.ttf", param_icon_font_size, &icons_config, range_awesome);
+				//io.Fonts->AddFontFromFileTTF("..\\Data\\Fonts\\ttf\\icons-Material.ttf", param_icon_font_size, &icons_config, range_material);
+
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\Cousine-Regular.ttf",	15.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\DroidSans.ttf", 16.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\Karla-Regular.ttf",	13.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\ProggyClean.ttf",	15.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\ProggyTiny.ttf",		12.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+				//io.Fonts->AddFontFromFileTTF("assets\\fonts\\Roboto-Medium.ttf",	20.0f, NULL, io.Fonts->GetGlyphRangesCyrillic());
+
+				igp.ImplUpdateFontTex();
+			}			
+
+			
+			
+			static bool	 is_skip_rames	= false;
+			static bool	 is_CPU_frame	= true;
+ 			static float im_fps_target	= 100.0;
+			//--------------------------------------------------
+			static bool	 imgui_software_raster	= false;
+			////////////////////////////////////////////////////////////////////////// imgui fps set
+ 			if (is_skip_rames)
+			{
+				static SuperTimer ST;
+ 				static double time_escaped = 9999999;  
+				
+				time_escaped += ST.GetRoundTime() ;
+   
+  				if (time_escaped > (1000.0 / im_fps_target))
+				{
+					time_escaped = 0.0;
+					is_CPU_frame = true;
+				}
+				else 
+				{
+					is_CPU_frame = false;
+ 				}
+ 			}
+			else 
+			{
+				is_CPU_frame = true;
+			}
+			//////////////////////////////////////////////////////////////////////////
+			if (true)
+			{
+				ImGuiIO& io = ImGui::GetIO();
+				IM_ASSERT(io.Fonts->IsBuilt());     // Font atlas needs to be built, call renderer _NewFrame() function e.g. ImGui_ImplOpenGL3_NewFrame() 
+
+				int w = mRS.RenderCanvasWight;
+				int h = mRS.RenderCanvasHeight;
+				int display_w = w; // mRS.RealCanvasWeight;
+				int display_h = h; // mRS.RealCanvasHight;
+
+
+				static SuperTimer im_timer;
+
+				io.DisplaySize = ImVec2((float)w, (float)h);
+				io.DisplayFramebufferScale = ImVec2(w > 0 ? ((float)display_w / w) : 0, h > 0 ? ((float)display_h / h) : 0);
+				io.DeltaTime = im_timer.GetRoundTime() / 1'000.;
+
+			}
+			
+			if (is_CPU_frame)
+			{
+ 				igp.ImplNewFrame();
+				ImGui::NewFrame();
+
+				if ("ImGui CPU work")
+				{
+					//----------------------------------------------------------------------// Render State
+					ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
+					ImGui::SetNextWindowBgAlpha(0.80f);
+					if (ImGui::Begin("global canvas", nullptr, 
+						ImGuiWindowFlags_AlwaysAutoResize	|
+						ImGuiWindowFlags_NoTitleBar			|
+						ImGuiWindowFlags_NoMove				|
+						ImGuiWindowFlags_NoFocusOnAppearing |
+						ImGuiWindowFlags_NoBringToFrontOnFocus
+						//ImGuiWindowFlags_NoInputs
+					))
+					{
+						ImVec2 min = { 0, 0 };
+						ImVec2 max = { 1920, 1080 };
+						ImVec4 color = { 1, 0, 0, 1 };
+
+						ImGui::Checkbox("Software render",	&imgui_software_raster);
+						ImGui::Checkbox("Save CPU time",	&is_skip_rames);
+						ImGui::SliderFloat("Target ImFps",	&im_fps_target, 10, 300);
+					}
+					ImGui::End();
+					//----------------------------------------------------------------------// Demo  
+ 					ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
+					ImGui::ShowDemoWindow(nullptr);
+ 					//----------------------------------------------------------------------// Render State
+					if (ImGui::Begin("Render State", nullptr, 0))
+					{
+
+						if (ImGui::CollapsingHeader("Window State"))
+						{
+							if (ImGui::Button("FullScreen")) 1 == 1;            ImGui::SameLine();
+							if (ImGui::Button("Window"))	 2 == 2;            ImGui::SameLine();
+							if (ImGui::Button("Window NB"))	 3 == 3;
+
+							if (ImGui::Button("TopMost"))	 my_window->SetTopMost(true);  ImGui::SameLine();
+							if (ImGui::Button("Normal"))	 my_window->SetTopMost(false);
+
+							ImGui::Separator();
+							//-------------------------------------------------------------------//	Window state
+
+							ImGui::Text(fmt::format("window -> GetX()        | {}", (int)my_window->GetX()).c_str());
+							ImGui::Text(fmt::format("window -> GetY()        | {}", (int)my_window->GetY()).c_str());
+							ImGui::Text(fmt::format("window -> GetWidth()    | {}", (int)my_window->GetWidth()).c_str());
+							ImGui::Text(fmt::format("window -> GetHeight()   | {}", (int)my_window->GetHeight()).c_str());
+							ImGui::Text(fmt::format("window -> IsActive()    | {}", (bool)my_window->IsActive()).c_str());
+							ImGui::Text(fmt::format("window -> IsExit()      | {}", (bool)my_window->IsExit()).c_str());
+							ImGui::Text(fmt::format("window -> IsMaximized() | {}", (bool)my_window->IsMaximized()).c_str());
+							ImGui::Text(fmt::format("window -> IsMinimized() | {}", (bool)my_window->IsMinimized()).c_str());
+							ImGui::Text(fmt::format("window -> IsResized()   | {}", (bool)my_window->IsResized()).c_str());
+							ImGui::Text(fmt::format("WS -> Title             | {}", (char*)my_window->GetWS()->Title.c_str()).c_str());
+							ImGui::Text(fmt::format("WS -> stile_borders     | {}", (int)my_window->GetWS()->stile_borders).c_str());
+							ImGui::Text(fmt::format("WS -> stile_alpha       | {}", (int)my_window->GetWS()->stile_alpha).c_str());
+							ImGui::Text(fmt::format("WS -> stile_transperent | {}", (int)my_window->GetWS()->stile_transperent).c_str());
+							ImGui::Text(fmt::format("WS -> SpawnPos          | {}", (int)my_window->GetWS()->SpawnPos).c_str());
+							ImGui::Text(fmt::format("WS -> X                 | {}", (int)my_window->GetWS()->X).c_str());
+							ImGui::Text(fmt::format("WS -> Y                 | {}", (int)my_window->GetWS()->Y).c_str());
+							ImGui::Text(fmt::format("WS -> Wight             | {}", (int)my_window->GetWS()->Wight).c_str());
+							ImGui::Text(fmt::format("WS -> Height            | {}", (int)my_window->GetWS()->Height).c_str());
+							ImGui::Text(fmt::format("WS -> Resizble          | {}", (bool)my_window->GetWS()->Resizble).c_str());
+							ImGui::Text(fmt::format("WS -> Visable           | {}", (bool)my_window->GetWS()->Visable).c_str());
+							ImGui::Text(fmt::format("WS -> _IsTopMost        | {}", (void*)my_window->GetWS()->TopMost).c_str());
+							ImGui::Text(fmt::format("WS -> _Handle           | {}", (void*)my_window->GetWS()->_Handle.handle).c_str());
+							ImGui::Text(fmt::format("WS -> _Hwnd             | {}", (void*)my_window->GetWS()->_Hwnd.hwnd).c_str());
+							ImGui::Text(fmt::format("WS -> _Hmodule          | {}", (void*)my_window->GetWS()->_Hmodule.module).c_str());
+						}
+						if (ImGui::CollapsingHeader("Render State"))
+						{
+							ImGui::Text(fmt::format("mRS.WindowHwnd          | {}", (void*)mRS.WindowHwnd.hwnd).c_str());
+							ImGui::Text(fmt::format("mRS.FullScreen          | {}", (bool)mRS.FullScreen).c_str());
+							ImGui::Text(fmt::format("mRS.vSunc               | {}", (bool)mRS.vSunc).c_str());
+							ImGui::Text(fmt::format("mRS.SlowOnUnFocuse      | {}", (bool)mRS.SlowOnUnFocuse).c_str());
+							ImGui::Text(fmt::format("mRS.RealCanvasWeight    | {}", (int)mRS.RealCanvasWeight).c_str());
+							ImGui::Text(fmt::format("mRS.RealCanvasHight     | {}", (int)mRS.RealCanvasHight).c_str());
+							ImGui::Text(fmt::format("mRS.VirtualCanvasWight  | {}", (int)mRS.RenderCanvasWight).c_str());
+							ImGui::Text(fmt::format("mRS.VirtualCanvasHeight | {}", (int)mRS.RenderCanvasHeight).c_str());
+							ImGui::Text(fmt::format("mRS.AAMode              | {}", (int)mRS.AAMode).c_str());
+							ImGui::Text(fmt::format("mRS.MSAA_SamplerCount   | {}", (int)mRS.MSAA_SamplerCount).c_str());
+							ImGui::Text(fmt::format("mRS.MSAA_QualityLevel   | {}", (int)mRS.MSAA_QualityLevel).c_str());
+							ImGui::Text(fmt::format("mRS.AnisotropicQuality  | {}", (int)mRS.AnisotropicQuality).c_str());
+						}
+						if (ImGui::CollapsingHeader("UNIVERSAL"))
+						{
+							ForArray(i, UNIVERSAL::UMODULESARR.size())
+							{
+								UMODULE *module = UNIVERSAL::UMODULESARR[i];
+
+								ImGui::Button(fmt::format("{} - {} [{}/{}]",
+									module->u_mod_name.c_str(),
+									module->u_mod_ver.c_str(),
+									module->u_mod_file.c_str(),
+									module->u_mod_line.c_str()).c_str());
+
+								if (module->my_refs.size() > 0)
+								{
+									//ImGui::Text("refs:");
+									ForArray(j, module->my_refs.size())
+									{
+										UCLASS* cl = module->my_refs[j];
+
+										ImGui::Text("");
+										ImGui::SameLine(30);
+										ImGui::Button(fmt::format("{} [{}/{}]",
+											cl->u_c_name.c_str(),
+											cl->u_c_file.c_str(),
+											cl->u_c_line.c_str()).c_str());
+									}
+								}
+
+							}
+						}
+
+
+						if (ImGui::CollapsingHeader("Gpu Adapters"))
+						{
+							
+							struct output_test
+							{
+								void* output_ptr;
+								gpu_output::output_info info;	
+								std::vector<gpu_output::output_mode> modes;
+
+ 							};
+							struct adp_test
+							{
+								void*					 adp_ptr;
+								gpu_adapter::adapter_info adp_info;
+								std::vector<output_test> outputs;
+							};
+  
+							static std::vector<adp_test> a_array;
+
+							MakeOnce
+							{
+								std::vector<gpu_adapter> adp_array = gpu_drawer::enum_gpu_adapters();
+ 
+ 								ForArray(i, adp_array.size())
+								{
+									adp_test test;
+
+									test.adp_ptr  = (void*)adp_array[i].GetAdapter();
+									test.adp_info = adp_array[i].GetInfo();
+
+  									auto outputs = gpu_drawer::enum_adapter_outputs(&adp_array[i]);
+
+									ForArray(j, outputs.size()) 
+									{
+										output_test out;
+
+										out.output_ptr	= (void*)outputs[j].GetOutput();
+										out.info		= outputs[j].GetOutputInfo();
+										out.modes		= outputs[j].GetOutputModes();
+									
+										test.outputs.push_back(out);
+									}
+									 
+									a_array.push_back(test);
+								}
+							}
+							
+							ImGui::Text(fmt::format("Adapters count: ({})", (int)a_array.size()).c_str());
+ 							ForArray(i, a_array.size())
+							{
+   								ImGui::Text(fmt::format("Adapter [{}]:",			(int)		i										).c_str());
+								ImGui::Text(fmt::format("impl_ptr           | {}",	(void*)		a_array[i].adp_ptr						).c_str());
+ 								ImGui::Text(fmt::format("description        | {}",	(char*)		a_array[i].adp_info.description.c_str()	).c_str());
+								ImGui::Text(fmt::format("vendor_id          | {}",	(uint32_t)	a_array[i].adp_info.vendor_id			).c_str());
+								ImGui::Text(fmt::format("device_id          | {}",	(uint32_t)	a_array[i].adp_info.device_id			).c_str());
+								ImGui::Text(fmt::format("subsys_id          | {}",	(uint32_t)	a_array[i].adp_info.subsys_id			).c_str());
+								ImGui::Text(fmt::format("revision           | {}",	(uint32_t)	a_array[i].adp_info.revision			).c_str());
+								ImGui::Text(fmt::format("dedicated_video_mem| {}",	(int64_t)	a_array[i].adp_info.dedicated_video_mem	).c_str());
+								ImGui::Text(fmt::format("dedicated_sys_mem  | {}",	(int64_t)	a_array[i].adp_info.dedicated_sys_mem	).c_str());
+								ImGui::Text(fmt::format("shared_system_mem  | {}",	(int64_t)	a_array[i].adp_info.shared_system_mem	).c_str());
+								ImGui::Text(fmt::format("adapter_luid       | {}",	(char*)		a_array[i].adp_info.adapter_luid.c_str()).c_str());
+								ImGui::Text(fmt::format("outputs count: ({})",		(int)		a_array[i].outputs.size()				).c_str());
+
+ 								ForArray(j, a_array[i].outputs.size())
+								{
+ 									ImGui::Text(fmt::format("   Output [{}]:",							(int)	j												).c_str());
+									ImGui::Text(fmt::format("   impl_ptr             | {}",				(void*)	a_array[i].outputs[j].output_ptr				).c_str());
+									ImGui::Text(fmt::format("   description          | {}",				(char*)	a_array[i].outputs[j].info.description.c_str()	).c_str());
+									ImGui::Text(fmt::format("   os_AttachedToDesktop | {}",				(bool)	a_array[i].outputs[j].info.os_AttachedToDesktop	).c_str());
+									ImGui::Text(fmt::format("   os_Coord             | {} {} {} {}",	(int)	a_array[i].outputs[j].info.os_Coord.left,
+																										(int)	a_array[i].outputs[j].info.os_Coord.top,
+																										(int)	a_array[i].outputs[j].info.os_Coord.right,
+																										(int)	a_array[i].outputs[j].info.os_Coord.bottom		).c_str());
+									ImGui::Text(fmt::format("   os_Rotation          | {}",				(float) a_array[i].outputs[j].info.os_Rotation			).c_str());
+									ImGui::Text(fmt::format("   os_hMonitor          | {}",				(void*) a_array[i].outputs[j].info.os_hMonitor			).c_str());
+									ImGui::Text(fmt::format("   outputs modes count: ({})",				(int)	a_array[i].outputs[j].modes.size()				).c_str());
+
+									ForArray(q, a_array[i].outputs[j].modes.size())
+									{
+										ImGui::Text(fmt::format("        output mode [{}] : {}-{}   {} {}",
+ 										(int)q,
+										(int)a_array[i].outputs[j].modes[q].Width,
+										(int)a_array[i].outputs[j].modes[q].Height,
+										(int)a_array[i].outputs[j].modes[q].RefreshNum,
+										(int)a_array[i].outputs[j].modes[q].RefreshDen).c_str());
+ 									}
+ 								}
+							}
+						}
+
+						if (ImGui::CollapsingHeader("System Metric"))
+						{
+ 							static auto mc = os_api::get_system_metric(os::os_sys_metric::VISIBLE_MONITOR_COUNT);
+							static auto mw = os_api::get_system_metric(os::os_sys_metric::MAIN_MONITOR_W);
+ 							static auto mh = os_api::get_system_metric(os::os_sys_metric::MAIN_MONITOR_H);
+
+							ImGui::Text(str::format::insert("VISIBLE_MONITOR_COUNT   | {}", (int)mc.GetValue()).c_str());;
+							ImGui::Text(str::format::insert("MAIN_MONITOR_W          | {}", (int)mw.GetValue()).c_str());;
+							ImGui::Text(str::format::insert("MAIN_MONITOR_H          | {}", (int)mh.GetValue()).c_str());;
+ 						}
+						if (ImGui::CollapsingHeader("System Resourses"))
+						{
+							static bool   update = 0;
+							static double period = 500.;
+
+							static SuperTimer ST;
+							static double time_escaped = 0;
+ 
+							time_escaped += ST.GetRoundTime();
+ 							if (time_escaped > period)
+							{
+								time_escaped = time_escaped - period;
+								update = true;
+							}
+							//////////////////////////////////////////////////////////////////////////
+							static float Vfree, Vused, Vall;
+							static float Rfree, Rused, Rall;
+							static float Pfree, Pused, Pall;
+ 							static float Mload;  
+							static float CurV;  
+							static float CurR; 
+
+							
+							if (update)
+							{
+								update = false;
+ 
+								Vfree	= os_api::get_ram_metric(os_ram_metric::MEM_VirtualMemoryAvail		  ).GetValue() / 1024. / 1024.;
+								Vused	= os_api::get_ram_metric(os_ram_metric::MEM_VirtualMemoryLoad		  ).GetValue() / 1024. / 1024.;
+								Vall	= os_api::get_ram_metric(os_ram_metric::MEM_VirtualMemoryTotal		  ).GetValue() / 1024. / 1024.;
+ 								Rfree	= os_api::get_ram_metric(os_ram_metric::MEM_RealMemoryAvail			  ).GetValue() / 1024. / 1024.;
+								Rused	= os_api::get_ram_metric(os_ram_metric::MEM_RealMemoryLoad			  ).GetValue() / 1024. / 1024.;
+								Rall	= os_api::get_ram_metric(os_ram_metric::MEM_RealMemoryTotal			  ).GetValue() / 1024. / 1024.;
+ 								Pfree	= os_api::get_ram_metric(os_ram_metric::MEM_PageFileAvail			  ).GetValue() / 1024. / 1024.;
+								Pused	= os_api::get_ram_metric(os_ram_metric::MEM_PageFileLoad			  ).GetValue() / 1024. / 1024.;
+								Pall	= os_api::get_ram_metric(os_ram_metric::MEM_PageFileSize			  ).GetValue() / 1024. / 1024.;
+ 								Mload	= os_api::get_ram_metric(os_ram_metric::MEM_MemoryLoadProcent		  ).GetValue();
+ 								CurV	= os_api::get_ram_metric(os_ram_metric::MEM_CurentProcVirtualMemUsage ).GetValue() / 1024. / 1024.;
+								CurR	= os_api::get_ram_metric(os_ram_metric::MEM_CurentProcRealMemUsage	  ).GetValue() / 1024. / 1024.;
+ 							}
+							
+							ImGui::Text(str::format::insert("      Memory Usage | {0:.1f}%%",					Mload				).c_str());
+							ImGui::Text(str::format::insert("CurentProc VR/Real | {0:.1f} / {1:.1f}",			CurV, CurR			).c_str());
+							ImGui::Text(str::format::insert("_______________________________________________"						).c_str());
+							ImGui::Text(str::format::insert("                   |  Free   |  Used   |  Total"							).c_str());
+							ImGui::Text(str::format::insert("    Virtual Memory | {0:.1f}  | {1:.1f}   | {2:.1f}", Vfree, Vused, Vall	).c_str());
+							ImGui::Text(str::format::insert("       Real Memory | {0:.1f}  | {1:.1f}  | {2:.1f}", Rfree, Rused, Rall	).c_str());
+							ImGui::Text(str::format::insert("          PageFile | {0:.1f} | {1:.1f} | {2:.1f}", Pfree, Pused, Pall	).c_str());
+
+							if(ImGui::Button("Hoppa"))
+							{
+								void *aaa = new char[1024*1024*100];
+							}
+ 						}
+
+					}
+					ImGui::End();
+					//----------------------------------------------------------------------//  GpuTexture
+ 					if (ImGui::Begin("GpuTexture", nullptr, 0))
+					{
+						static int size_setter[2] = { 128, 128 };
+						ImGui::InputInt2("SetSize", size_setter);
+						if (ImGui::Button("Update"))
+						{
+							//                             RenderCopyW = size_setter[0];
+							//                             RenderCopyH = size_setter[1];
+						}
+						if (ImGui::Button("Save"))
+						{
+ 						}
+
+						static ImVec2 size = { 256,256 };
+						static ImVec2 uv0 = { 0, 0 };
+						static ImVec2 uv1 = { 1, 1 };
+						static ImVec4 tint_col = { 1,1,1,1 };
+						static ImVec4 border_col = { 1,1,1,1 };
+
+
+						ImGui::DragFloat4("1", &tint_col.x, 0.01, 0, 1);
+						ImGui::DragFloat4("2", &border_col.x, 0.01, 0, 1);
+
+						/*if (RenderCopyRes.GetShaderResourse())
+							ImGui::Image(RenderCopyRes.GetShaderResourse()->pView, size, uv0, uv1, tint_col, border_col);*/
+
+
+						//                 static RTexture tex = NewRTexture();
+						// 
+						// 
+						//                 static RTexture tex;
+						//                 MakeOnce
+						//                 {
+						//                     tex = TextureFromFile(inUTF8("assets\\image.png"));
+						//                 }
+						//                 ImGui::Image(tex.view, ImVec2(tex.Wight / 2, tex.Height / 2));
+
+					}
+					ImGui::End();
+ 					//----------------------------------------------------------------------// Rand Test
+ 					if (ImGui::Begin("Rand Test", nullptr, 0))
+					{
+						static int64_t seed = 0;
+						static int64_t min = 0;
+						static int64_t max = 1;
+						static uint64_t ints[9][6];
+						static bool cek = false;
+
+						static math::StdRandomGenerator <minstd_rand0	  > gen0;
+						static math::StdRandomGenerator <minstd_rand	  > gen1;
+						static math::StdRandomGenerator <mt19937		  > gen2;
+						static math::StdRandomGenerator <mt19937_64		  > gen3;
+						static math::StdRandomGenerator <ranlux24_base	  > gen4;
+						static math::StdRandomGenerator <ranlux48_base	  > gen5;
+						static math::StdRandomGenerator <ranlux24		  > gen6;
+						static math::StdRandomGenerator <ranlux48		  > gen7;
+						static math::StdRandomGenerator <knuth_b		  > gen8;
+						//////////////////////////////////////////////////////////////////////////
+						ImGui::Checkbox("Use seed (disabled)", &cek);
+						ImGui::SameLine();
+						ImGui::InputScalar("input s64", ImGuiDataType_S64, &seed, NULL);
+						ImGui::InputScalar("min", ImGuiDataType_S64, &min, NULL);
+						ImGui::InputScalar("max", ImGuiDataType_S64, &max, NULL);
+
+						if (ImGui::Button("Gen"))
+						{
+							ForArray(i, 10) ints[0][i] = gen0.GenerateRangedInt(min, max);
+							ForArray(i, 10) ints[1][i] = gen1.GenerateRangedInt(min, max);
+							ForArray(i, 10) ints[2][i] = gen2.GenerateRangedInt(min, max);
+							ForArray(i, 10) ints[3][i] = gen3.GenerateRangedInt(min, max);
+							ForArray(i, 10) ints[4][i] = gen4.GenerateRangedInt(min, max);
+							ForArray(i, 10) ints[5][i] = gen5.GenerateRangedInt(min, max);
+							ForArray(i, 10) ints[6][i] = gen6.GenerateRangedInt(min, max);
+							ForArray(i, 10) ints[7][i] = gen7.GenerateRangedInt(min, max);
+							ForArray(i, 10) ints[8][i] = gen8.GenerateRangedInt(min, max);
+						}
+						int size = (ImGui::GetContentRegionAvail().x - 100) / 10;
+						int id = 0;						
+						
+						ImGui::PushItemWidth(size);
+						{
+							ForArray(algs, 9)
+							{
+								ForArray(vals, 6)
+								{
+ 									ImGui::PushID(id++);
+ 									ImGui::InputScalar(str::format::insert("##__{}", id++).c_str(), ImGuiDataType_U64, &ints[algs][vals], NULL);
+ 									ImGui::PopID();
+									
+									ImGui::SameLine();
+								}
+								ImGui::Dummy({ 0,0 });
+							}
+						}
+ 						ImGui::PopItemWidth();
+						//////////////////////////////////////////////////////////////////////////
+					}
+					ImGui::End();
+ 					//----------------------------------------------------------------------// GpuTexture
+  					if (ImGui::Begin("GpuTexture", nullptr, 0))
+					{
+						//static gpu_texture Tex;
+						//static gpu_shader_resourse Res;
+						//static RGBA_BITMAP bitmap(512, 512);
+
+						//MakeOnce
+						//{
+						//	Tex.Create(bitmap.w, bitmap.h, 1, gpu_object_access::write);
+						//	Tex.GetTexture()->pTexture;
+
+						//	Res.CreateShaderResourse(Tex.GetTexture());
+						//}
+
+						//D3D11_MAPPED_SUBRESOURCE mapped;
+						//DX11GetDeviceContext()->Map(Tex.GetTexture()->pTexture, 0, D3D11_MAP_WRITE_DISCARD /*D3D11_MAP_WRITE_DISCARD*/, 0, &mapped);
+						//{
+						//	size_t line_size = mapped.RowPitch / sizeof(PIXEL_RGBA);
+						//	size_t line_count = mapped.DepthPitch / mapped.RowPitch;
+						//	size_t size_w = bitmap.w;
+						//	size_t size_h = bitmap.h;
+
+						//	//////////////////////////////////////////////////////////////////////////
+
+						//	PIXEL_RGBA*source = bitmap.data;
+						//	PIXEL_RGBA*dest = (PIXEL_RGBA*)mapped.pData;
+						//	 
+						//	static int8_t rand_arr[197];
+						//	MakeOnce
+						//		ForArray(i, 197)
+						//			rand_arr[i] = math::RandomShort(0, 255);
+ 
+						//	ForArray(i, bitmap.w * bitmap.h)
+						//	{
+ 					//			bitmap.data[i].r = i / 2;
+						//		bitmap.data[i].g = i / 3;
+						//		bitmap.data[i].b = i / 4;
+						//		bitmap.data[i].a = 255;
+						//	}
+						//	ForArray(y, size_h)
+						//	{
+						//		memcpy(dest, source, sizeof(PIXEL_RGBA)*size_w);
+
+						//		source = (PIXEL_RGBA*)bitmap.data + y * size_w;
+						//		dest = (PIXEL_RGBA*)mapped.pData + y * line_size;
+
+						//	}
+						//	DX11GetDeviceContext()->Unmap(Tex.GetTexture()->pTexture, 0);
+
+						//	ImGui::Image(Res.GetShaderResourse()->pView, { (float)bitmap.w,(float)bitmap.h });
+						//}
+					}
+					ImGui::End();
+					//----------------------------------------------------------------------// Window
+  					if (ImGui::Begin("Window", nullptr, 0))
+					{
+						ImGuiIO&		io		= ImGui::GetIO();
+  						ImGuiContext*	context = ImGui::GetCurrentContext();
+						ImGuiWindow*	window  = context->CurrentWindow;
+						ImDrawList*		drawer  = window->DrawList;
+
+ 
+						struct Container 
+						{
+							FLOAT2 Pos;
+							FLOAT2 Size;
+						
+    					};
+
+
+						struct Region : Container
+						{
+ 						private:
+ 							float croped_line_len;
+							float stable_line_len;
+							float region_1_size;
+							float region_1_aspect;
+							float region_2_size;
+							float region_2_aspect;
+
+							bool horisontal;
+							bool size_in_ratio;
+
+							enum class resize_tupe
+							{
+								save_aspect,
+								drag_1_region,
+								drag_2_region,
+ 							};
+
+						protected:
+							void SetSize	 (float size_in_pixels) 
+							{
+									 if	(size_in_pixels >  croped_line_len) { size_in_pixels =  croped_line_len; }
+								else if (size_in_pixels < -croped_line_len) { size_in_pixels = -croped_line_len; }
+ 
+								bool swap = size_in_pixels < 0.0f;
+								size_in_pixels = abs(size_in_pixels);
+
+								region_1_size = size_in_pixels;
+								region_2_size = croped_line_len - region_1_size;
+								
+								if (swap)
+									std::swap(region_1_size, region_2_size);
+ 								
+								size_in_ratio = false;
+  							}
+ 							void SetSizeRatio(float aspect)
+							{
+									 if (aspect >  1.0f) { aspect =  1.0f; }
+								else if (aspect < -1.0f) { aspect = -1.0f; }
+
+								bool swap = aspect < 0.0f;
+								aspect = abs(aspect);
+
+								region_1_aspect = aspect;
+								region_2_aspect = 1.0f - region_1_aspect;
+
+								if (swap)
+								{
+									float tmp = region_1_aspect;
+									region_1_aspect = region_2_aspect;
+									region_2_aspect = tmp;
+ 								}
+ 
+								size_in_ratio = true;
+							}	
+							void InitRegion	(FLOAT2 x0y0, FLOAT2 wh, bool hor)
+							{
+								Pos				= x0y0;
+								Size			= wh;
+								horisontal		= hor;
+								croped_line_len = horisontal ? Size.x : Size.y;
+								stable_line_len = horisontal ? Size.y : Size.x;
+							}
+
+						public:  
+							void InitRegion_Ratio(FLOAT2 x0y0, FLOAT2 wh, float ratio, bool hor = true) { InitRegion(x0y0, wh, hor); SetSizeRatio(ratio); }
+							void InitRegion_Sized(FLOAT2 x0y0, FLOAT2 wh, float size,  bool hor = true) { InitRegion(x0y0, wh, hor); SetSize(size);		  }
+
+							void InitRegion_Ratio(FLOAT4 x0y0wh, float ratio, bool hor = true) { InitRegion({ x0y0wh.x, x0y0wh.y }, { x0y0wh.z, x0y0wh.w }, hor); SetSizeRatio(ratio);	}
+							void InitRegion_Sized(FLOAT4 x0y0wh, float size,  bool hor = true) { InitRegion({ x0y0wh.x, x0y0wh.y }, { x0y0wh.z, x0y0wh.w }, hor); SetSize(size);		}
+							 
+						public:  
+ 							FLOAT2 GetRegion1Pos	(FLOAT2 padding = { 0, 0 }) { return Pos + padding; }
+							FLOAT2 GetRegion2Pos	(FLOAT2 padding = { 0, 0 })
+							{
+								FLOAT2 out;
+								
+								if (horisontal)	out = FLOAT2(Pos.x + GetRegion1Size().x,  Pos.y);
+								else			out = FLOAT2(Pos.x,  GetRegion1Size().y + Pos.y);
+
+								return out + padding;
+ 							}
+							FLOAT2 GetRegion1Size	(FLOAT2 padding	= { 0, 0 }) { FLOAT2 out = _GetRegionSize(true);  return FLOAT2(out.x - (padding.x * 2.), out.y - (padding.y * 2.)); }
+							FLOAT2 GetRegion2Size	(FLOAT2 padding	= { 0, 0 }) { FLOAT2 out = _GetRegionSize(false); return FLOAT2(out.x - (padding.x * 2.), out.y - (padding.y * 2.)); }
+							//////////////////////////////////////////////////////////////////////////
+							FLOAT4 GetRegion1		(FLOAT2 padding = { 0, 0 }) { FLOAT2 p = GetRegion1Pos(padding); FLOAT2 s = GetRegion1Size(padding); return FLOAT4(p.x, p.y, s.x, s.y); }
+							FLOAT4 GetRegion2		(FLOAT2 padding = { 0, 0 }) { FLOAT2 p = GetRegion2Pos(padding); FLOAT2 s = GetRegion2Size(padding); return FLOAT4(p.x, p.y, s.x, s.y); }
+ 						
+						private:
+ 							FLOAT2 _GetRegionSize(bool is_reg_1)
+							{
+								float croped = croped_line_len;
+								float stable = stable_line_len;
+   
+								float _ratio;
+								float _sizeo;
+
+								if (is_reg_1)
+								{
+									_ratio = region_1_aspect;
+									_sizeo = region_2_size;
+								}
+								else
+								{
+									_ratio = region_2_aspect;
+									_sizeo = region_1_size;
+ 								}
+
+ 								if (size_in_ratio)	{ croped = croped * _ratio; }
+								else				{ croped = croped - _sizeo; }
+ 
+								FLOAT2 out;
+
+								if (horisontal) out = FLOAT2(croped, stable);
+								else			out = FLOAT2(stable, croped);
+								
+								return out;
+							}
+							 
+ 						};
+ 						struct Grid : Container
+						{
+							void InitRegion(FLOAT4 x0y0wh, int w_colums, int h_colums)
+							{
+								assert( math::InRange(w_colums, 1, 100) );
+								assert( math::InRange(h_colums, 1, 100) );
+
+								Pos  = { x0y0wh.x, x0y0wh.y };
+								Size = { x0y0wh.z, x0y0wh.w };
+
+								hor_colums_num = w_colums;
+								ver_colums_num = h_colums;
+								
+								hor_colum_size = Size.x / w_colums;
+								ver_colum_size = Size.y / h_colums;
+ 							}
+
+							
+							
+							size_t hor_colums_num;
+							size_t ver_colums_num;
+
+							float hor_colum_size;
+							float ver_colum_size;
+
+						public:
+
+							FLOAT2 GetRegionPos	(size_t w_id, size_t h_id, FLOAT2 padding = { 0, 0 })
+							{
+ 								assert(math::InRange(w_id, 0, hor_colums_num - 1));
+								assert(math::InRange(h_id, 0, ver_colums_num - 1));
+
+  								FLOAT2 out;
+
+								out.x = Pos.x + hor_colum_size * w_id + padding.x;
+								out.y = Pos.y + ver_colum_size * h_id + padding.y;
+
+								return out;
+ 							}
+							FLOAT2 GetRegionSize(size_t w_id, size_t h_id, FLOAT2 padding = { 0, 0 })
+							{
+								assert(math::InRange(w_id, 0, hor_colums_num - 1));
+								assert(math::InRange(h_id, 0, ver_colums_num - 1));
+								
+								FLOAT2 out;
+ 
+								out.x = hor_colum_size - padding.x * 2;
+								out.y = ver_colum_size - padding.y * 2;
+								
+								return out;
+ 							}
+							FLOAT4 GetRegion	(size_t w_id, size_t h_id, FLOAT2 padding = { 0, 0 })
+							{
+								FLOAT2 pos  = GetRegionPos (w_id, h_id, padding);
+								FLOAT2 size = GetRegionSize(w_id, h_id, padding);
+							
+								return FLOAT4(pos.x, pos.y, size.x, size.y);
+							}
+
+
+
+
+						};
+
+
+
+						static Region region_canvas;
+						static Region region_left_side;
+ 						static Grid   grid_right_side;
+
+ 						FLOAT2 canvas_pos	= ImGui::GetCursorPos();
+						FLOAT2 canvas_pos_g	= ImGui::GetCursorPos() + ImGui::GetWindowPos();
+						FLOAT2 canvas_size  = ImGui::GetContentRegionAvail();
+
+
+						region_canvas.		InitRegion_Ratio(canvas_pos, canvas_size,	 0.50, true);
+ 						region_left_side.	InitRegion_Ratio(region_canvas.GetRegion1(), 0.50, false);
+  						grid_right_side.	InitRegion(region_canvas.GetRegion2(), 6, 6);
+
+  						bool press = false;
+
+						ImGui::SetCursorPos(region_left_side.GetRegion1Pos({ 4,4 }));	press |= ImGui::Button("PRESS##0", region_left_side.GetRegion1Size({ 4,4 }));	// 0.
+						ImGui::SetCursorPos(region_left_side.GetRegion2Pos({ 4,4 }));	press |= ImGui::Button("PRESS##1", region_left_side.GetRegion2Size({ 4,4 }));	// 0.
+ 						
+						ForArray(y, 6)
+						ForArray(x, 6)
+						{
+							ImGui::SetCursorPos(grid_right_side.GetRegionPos(x, y, { 4,4 }));
+							press |= ImGui::Button(fmt::format("PRESS##{}{}", x, y).c_str(), grid_right_side.GetRegionSize(x, y, {4,4}));
+  						}
+
+
+						static FLOAT2 xy;
+						static int x = -1;
+						
+						if (press) 
+						{
+							xy = io.MousePos; 			
+							x = 0;
+
+						}
+   						if (x>-1)
+						{
+  							drawer->AddCircleFilled	(xy, x++, IM_COL32(255, 0, 0, 255),		x);
+							drawer->AddCircle		(xy, x++, IM_COL32(255, 255, 255, 255), x, 1.0f);
+
+							if (x>100)
+							{
+								x = -1;
+							}
+
+
+ 						}
+
+						ImGui::PushClipRect(FLOAT2(0, 0), FLOAT2(10000, 10000), false);
+						{
+ 							
+
+						
+						
+						}
+
+
+
+
+
+
+						ImGui::PopClipRect();
+						
+ 					}
+					ImGui::End();
+					//----------------------------------------------------------------------// color compressor
+					if (ImGui::Begin("color", nullptr, 0))
+					{
+						//ImGuiIO&		io = ImGui::GetIO();
+						//ImGuiContext*	context = ImGui::GetCurrentContext();
+						//ImGuiWindow*	window = context->CurrentWindow;
+						//ImDrawList*		drawer = window->DrawList;
+
+
+						//static gpu_texture		 TextureIn;
+						//static gpu_texture		 TextureOut;
+						//static gpu_shader_resourse TexInRes;
+						//static gpu_shader_resourse TexOutRes;
+
+						//static RGBA_BITMAP bitmap_in;
+						//static RGBA_BITMAP bitmap_out;
+						//	
+						//static int	bitmap_size[2]		= { 0, 0 };
+ 					//	static int	view_size[2]		= { 512, 512 };
+ 					//	static bool gpu_res_update		= false;
+						//static bool read_from_clipboard = false;
+ 					//	static std::string error_msg	= "";
+
+						//static int	compress_strength	 = 2;
+						//static int	compress_overtoon	 = 0;
+  
+						// 
+						//if (read_from_clipboard)
+						//{
+						//	auto call = os::io::Clipboard::GetClipboardImage();
+						//
+						//	error_msg = "";
+
+						//	if (call.IsSucceed())
+						//	{
+						//		_DELETE_ARRAY(bitmap_in.data);
+						//		_DELETE_ARRAY(bitmap_out.data);
+
+						//		RGBA_BITMAP* img_data = (PIXEL_RGBA*)call.GetValue().data;
+						//		INT2   size = { call.GetValue().w,call.GetValue().h };
+
+ 					//			// convert BGRA to RGBA
+						//		ForArray(i, size.x * size.y)
+						//			img_data[i] = { img_data[i].b, img_data[i].g, img_data[i].r, img_data[i].a };
+
+						//		bitmap_in.w = size.x;
+						//		bitmap_in.h = size.y;
+						//		bitmap_in.data = img_data;
+
+						//		bitmap_out.w = size.x;
+						//		bitmap_out.h = size.y;
+						//		bitmap_out.data = new PIXEL_RGBA[size.x * size.y];
+						//		memcpy(bitmap_out.data, bitmap_in.data, sizeof(PIXEL_RGBA) * size.x * size.y);
+
+						//		bitmap_size[0]	= { size.x };
+						//		bitmap_size[1]	= { size.y };
+						//		view_size[0]	= { size.x };
+						//		view_size[1]	= { size.y };
+
+						//		gpu_res_update = true;
+						//	}
+						//	else
+						//		error_msg = call.GetErrorMsg();
+						//}
+						//
+						//if (gpu_res_update)
+						//{
+						//	gpu_res_update = false;
+
+						//	memcpy(bitmap_out.data, bitmap_in.data, sizeof(PIXEL_RGBA) * bitmap_out.h * bitmap_out.w);
+
+ 					//		ForArray(y, bitmap_out.h)
+						//	ForArray(x, bitmap_out.w)
+						//	{
+						//		PIXEL_RGBA p = bitmap_out.data[x + y * bitmap_out.w];
+
+						//		int r = p.r;
+						//		int g = p.g;
+						//		int b = p.b;
+						//		int a = p.a;
+
+						//		int rc = r % compress_strength;
+						//		int gc = g % compress_strength;
+						//		int bc = b % compress_strength;
+						//		
+						//		int sub_size  = compress_strength;
+						//		int sub_count = 255 / compress_strength;
+  
+						//		int subs_r = (r / sub_size);
+						//		int subs_g = (g / sub_size);
+						//		int subs_b = (b / sub_size);
+ 
+						//		r = subs_r * sub_size;
+						//		g = subs_g * sub_size;
+						//		b = subs_b * sub_size;
+
+						//		r = r + compress_overtoon * sub_size / 100. ;
+						//		g = g + compress_overtoon * sub_size / 100. ;
+						//		b = b + compress_overtoon * sub_size / 100. ;
+
+						//		int comb = 1000 + rc * 100 + gc * 10 + bc;
+						//		 
+						//		if (comb == 1000) {}
+						//		if (comb == 1001) {  r = 0;		g = 0;		b = 0;		} // black
+						//		if (comb == 1010) {  r = 255;	g = 255;	b = 255;	} // white
+						//		if (comb == 1011) {  r = 255;	g = 0;		b = 0;		} // red
+						//		if (comb == 1100) {  r = 0;		g = 255;	b = 0;		} // green
+						//		if (comb == 1101) {  r = 0;		g = 0;		b = 255;	} // blue
+						//		if (comb == 1110) {  r = 255;	g = 255;	b = 0;		} // yelow
+						//	 	if (comb == 1111) {}
+ 					//		   
+ 					//			bitmap_out.data[x + y * bitmap_out.w].r = (r < 0) ? 0 : (r > 255) ? 255 : r;
+						//		bitmap_out.data[x + y * bitmap_out.w].g = (g < 0) ? 0 : (g > 255) ? 255 : g;
+						//		bitmap_out.data[x + y * bitmap_out.w].b = (b < 0) ? 0 : (b > 255) ? 255 : b;
+						//		bitmap_out.data[x + y * bitmap_out.w].a = p.a;						    
+						//	}
+						//	 
+
+						//	// 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21     115 116 117     223  224 225
+
+						//	D3D11_BOX destRegion;
+						//	destRegion.left		= 0;
+						//	destRegion.top		= 0;
+						//	destRegion.right	= bitmap_size[0];
+						//	destRegion.bottom	= bitmap_size[1];
+						//	destRegion.front	= 0;
+						//	destRegion.back		= 1;
+
+						//	size_t SrcRowPitch = sizeof(PIXEL_RGBA) * bitmap_size[0];
+
+						//	TextureIn.Release();
+						//	TextureOut.Release();
+						//	TexInRes.Release();
+						//	TexOutRes.Release();
+
+						//	TextureIn.Create(bitmap_in.w, bitmap_in.h, 1, gpu_object_access::no_access);
+						//	TextureOut.Create(bitmap_in.w, bitmap_in.h, 1, gpu_object_access::no_access);
+						//	TexInRes.CreateShaderResourse(TextureIn.GetTexture());
+						//	TexOutRes.CreateShaderResourse(TextureOut.GetTexture());
+
+						//	gpu_drawer::gpu_device()->pContext->UpdateSubresource(TextureIn.GetTexture()->pTexture, 0, &destRegion, bitmap_in.data, SrcRowPitch, 0);
+						//	gpu_drawer::gpu_device()->pContext->UpdateSubresource(TextureOut.GetTexture()->pTexture, 0, &destRegion, bitmap_out.data, SrcRowPitch, 0);
+						//}
+
+ 				 //
+
+						//read_from_clipboard = ImGui::Button("Get Data From Clipboard");
+   			//			ImGui::InputInt2("##size", view_size);  
+						//gpu_res_update |= ImGui::SliderInt("Compress strength", &compress_strength, 1, 255);
+						//gpu_res_update |= ImGui::SliderInt("Compress overtoon", &compress_overtoon, 0, 100);
+ 					//	gpu_res_update |= ImGui::Button("Update"); 
+    
+						//ImGui::Separator();
+						//if (error_msg != "")
+						//	ImGui::TextColored({ 1,0,0,1 }, error_msg.c_str());
+
+ 					//	static ImDrawCallback ptr_on  = [](const ImDrawList* parent_list, const ImDrawCmd* cmd)	{	((gpu_drawer*)cmd->UserCallbackData)->BindSampler(SamplerMode::NearPixel);	};
+						//static ImDrawCallback ptr_off = [](const ImDrawList* parent_list, const ImDrawCmd* cmd)	{	((gpu_drawer*)cmd->UserCallbackData)->BindSampler( SamplerMode::NearPixel);	};
+
+  				//		drawer->AddCallback(ptr_on, this);
+ 					//	ImGui::Image(TexInRes. GetShaderResourse()->pView, FLOAT2(view_size[0], view_size[1])); ImGui::SameLine();
+
+						//drawer->AddCallback(ptr_off, this);
+						//ImGui::Image(TexOutRes.GetShaderResourse()->pView, FLOAT2(view_size[0], view_size[1]));
+
+
+
+
+					}
+					ImGui::End();
+					//----------------------------------------------------------------------// UDP
+					if (ImGui::Begin("UDP Socket", nullptr, 0))
+					{
+						static web::UDP_Socket Server;
+						static web::UDP_Socket Client;
+
+						if (ImGui::Button("OpenSocket"))
+						{
+							Server.OpenSocket();
+ 						}
+						if (ImGui::Button("Send"))
+						{
+							Server.SendPocket("ASS", "85.173.131.81", 8015);
+ 						}
+
+						ImGui::Text(str::format::insert("{}", Server.sms_count).c_str());
+					}
+					ImGui::End();
+
+					//----------------------------------------------------------------------// open cv
+					ImGui::SetWindowSize({ 1600, 1200 }, ImGuiCond_Once);
+					if (ImGui::Begin("OpenCV", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+					{
+						static cv::VideoCapture vd_cap;
+
+
+ 
+						struct cacher
+						{
+							 
+						public:
+
+							void CaptureSourse(cv::VideoCapture vd, INT2 resize_output = {0,0})
+							{
+ 								sourse = vd;
+ 								vd_sourse_resolution = { 
+									(int)vd_cap.get(CV_CAP_PROP_FRAME_WIDTH), 
+									(int)vd_cap.get(CV_CAP_PROP_FRAME_HEIGHT) };
+
+								vd_curent_frame = 0;
+								vd_frame_count = vd_cap.get(CV_CAP_PROP_FRAME_COUNT);
+
+								if (math::equal(resize_output, { 0,0 }))
+									vd_output_resolution = vd_sourse_resolution;
+								else
+									vd_output_resolution = resize_output;
+
+								start_cache_process();
+ 							}
+							 
+							//=================================// read frame
+							 
+							result<cv::Mat> GetNextFrame()
+							{
+ 								if (next_get_frame_id >= cache_size)
+									next_get_frame_id = 0;
+
+								//while (frames_ready <= 0)
+								//	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+								 
+ 								if (cache_state[next_get_frame_id] == true)
+								{
+ 									cv::Mat out;
+
+									out = cache[next_get_frame_id];
+									cache_state[next_get_frame_id] = false;
+
+									frames_ready--;
+									next_get_frame_id++;
+									vd_curent_frame++;
+
+									//log::debug << str::format::insert("Frame get {}", vd_curent_frame);
+
+									return out;
+								}
+
+ 								return error_result("Cache not ready / end of stream");
+  							}
+							void GoToFrame(int frame)
+							{
+								vd_curent_frame = frame;
+ 								frames_ready = 0;
+  
+								vd_cap.set(CV_CAP_PROP_POS_FRAMES, frame); 
+
+								start_cache_process();
+ 							}
+
+						public:
+							
+							void stop_cache_process() 
+							{
+								cache_loop = false;
+							}
+							void start_cache_process()
+							{
+								//std::terminate();
+								if (cache_loop != true)
+								{
+ 									cache_loop = true;
+									cache_thread = std::thread(&cacher::_cache_thread, this);
+									cache_thread.detach();
+								}
+ 							}
+							void _cache_thread()
+							{
+								while (cache_loop)
+								{
+									if (frames_ready < cache_size)
+									{
+										cv::Mat frame;
+										vd_cap >> frame;
+
+										if (!frame.empty())
+										{
+											if (!math::equal(vd_sourse_resolution, vd_output_resolution))
+												cv::resize(frame, frame, cv::Size(vd_output_resolution.x, vd_output_resolution.y));
+
+											if (next_cache_frame_id >= cache_size)
+												next_cache_frame_id = 0;
+
+											cache[next_cache_frame_id] = frame;
+											cache_state[next_cache_frame_id] = true;
+
+											//log::debug << str::format::insert("Frame cached {}", vd_curent_frame + frames_ready);
+
+											next_cache_frame_id++;
+											frames_ready++;
+										}
+										else
+											cache_loop = false;
+									}
+									else
+									{
+										std::this_thread::sleep_for(std::chrono::milliseconds(10));
+									}
+								}
+							}
+
+						
+
+						protected:
+							cv::VideoCapture sourse;
+							std::thread  cache_thread;
+							atomic<bool> cache_loop = false;
+
+							enum  { cache_size = 6 };
+  
+							std::array <cv::Mat, cache_size> cache;
+							std::array <bool, cache_size> cache_state;
+
+							atomic<int>  next_cache_frame_id = 0;
+							atomic<int>  next_get_frame_id = 0;
+ 							atomic<int>  frames_ready = 0;
+ 
+						public:
+							
+							int vd_curent_frame = 0;
+							int vd_frame_count = 0; 
+							INT2 vd_sourse_resolution;
+							INT2 vd_output_resolution;
+						} 
+						static ReaderThread;
+						 
+ 						static bool	  vd_is_play	= false;
+ 						static string vd_status_msg = "";
+  						//////////////////////////////////////////////////////////////////////////
+  						static constexpr INT2 LOW_VD_RESOLUTION = { 2560 / 2, 1440 / 2 };
+ 						 
+						if (ImGui::Button("open_cv_rec_img"))
+							cv_tests::open_cv_rec_img();
+ 
+						ImGui::Separator();
+						//====================================// Load
+						if (ImGui::Button("Load"))
+						{
+ 							vd_cap.open("D://_ram//cars.mp4");
+
+ 							if (vd_cap.isOpened()) vd_status_msg = "Video stream/file successfully captured";
+							else	vd_status_msg = "Error opening video stream/file";
+
+							ReaderThread.CaptureSourse(vd_cap, LOW_VD_RESOLUTION);
+ 						}
+						ImGui::SameLine();
+						//====================================// Play
+						if (ImGui::Button("Play"))
+						{
+							vd_is_play = true;
+							vd_status_msg = "Playing...";
+						}
+						ImGui::SameLine();
+ 						if (ImGui::Button("Stop"))
+						{
+							vd_is_play = false;
+							vd_status_msg = "Stoped";
+						}
+						ImGui::SameLine();
+ 						if (ImGui::Button("Replay"))
+						{
+							vd_is_play = true;
+							vd_status_msg = "Playing...";
+							
+							ReaderThread.GoToFrame(0);
+ 						}
+ 						ImGui::SameLine();
+						//====================================// Clear
+						if (ImGui::Button("Release"))
+						{
+ 							vd_is_play = false;
+							
+							vd_cap.release();
+							cv::destroyAllWindows();
+						}
+
+						//////////////////////////////////////////////////////////////////////////
+						enum class track_state
+						{
+							ready_for_track_set,
+							setting_track_p1,
+							setting_track_p2,
+							init_track_bits,
+							
+							ready_for_search_call,
+							searching,
+ 						};
+						
+						static FLOAT2 track_p1	= { 0, 0 }; static FLOAT2 track_p2	= { 0, 0 };
+						static FLOAT2 search_p1 = { 0, 0 }; static FLOAT2 search_p2 = { 0, 0 };
+						static FLOAT2 result_p1 = { 0, 0 }; static FLOAT2 result_p2 = { 0, 0 };
+
+ 
+						static track_state tr_state = track_state::ready_for_track_set;
+						static BITMAP_RGBA search_img;
+ 						 
+
+ 						struct _ImageTracker
+						{
+
+							int nearest_colors[256];
+							vector<INT2> color_points[256];
+						  
+ 							vector<INT2> _find_nearest_color(int color)
+							{
+ 								uint8_t c = nearest_colors[color];
+ 
+								auto same_color_points = vector<INT2>(color_points[c]);
+  
+								return same_color_points;
+							}
+
+							void SetTrack(BITMAP_RGBA& bitmap)
+							{
+								original_track = bitmap;
+
+								ForArray(i, 255)
+									nearest_colors[i] = -1;
+
+								ForArray(y, original_track.h)
+								ForArray(x, original_track.w)
+								{
+									auto p = original_track.get_pixel(x, y);
+
+									nearest_colors[p.r] = p.r;
+   								}
+ 								//log::debug << str::format::insert("Generated {} 3-keys", key3_toind.size());
+ 
+								ForArray(i, 255)
+								{
+									if (nearest_colors[i] == -1)
+									{ 
+										uint8_t col = i; 
+										int col_up = i + 1; 
+										int col_low = i - 1; 
+										while (nearest_colors[i] == -1)
+										{ 
+											if (col_up > 255) 
+												col_up = 255; 
+											if (col_low < 0) 
+												col_low = 0; 
+											if (nearest_colors[col_up] != -1)
+												nearest_colors[i] = col_up;
+											else 
+												if (nearest_colors[col_low] != -1)
+													nearest_colors[i] = col_low;
+												else 
+												{ 
+													col_up++; 
+													col_low--; 
+												} 
+										} 
+									}
+								 }
+
+								ForArray(y, original_track.h)
+								ForArray(x, original_track.w)
+								{
+									auto p = original_track.get_pixel(x, y);
+
+									color_points[nearest_colors[p.r]].push_back(INT2{ (int)x, (int)y });
+ 								}
+
+
+							}
+							INT2 FindObject(BITMAP_RGBA& bitmap )
+							{
+
+								if (false && "cv")
+								{
+									cv::Mat orig(original_track.h, original_track.w, CV_8UC3, cv::Scalar(255, 0, 0));
+									cv::Mat find(bitmap.h, bitmap.w, CV_8UC3, cv::Scalar(255, 0, 0));
+
+									ForArray(y, original_track.h)
+									ForArray(x, original_track.w)
+									{
+										auto* sourse = original_track.raw_data(x, y);
+										uchar* dest = orig.ptr(y, x);
+
+										*(dest + 0) = sourse->b;
+										*(dest + 1) = sourse->g;
+										*(dest + 2) = sourse->r;
+									}
+									ForArray(y, bitmap.h)
+									ForArray(x, bitmap.w)
+									{
+										auto* sourse = bitmap.raw_data(x, y);
+										uchar* dest = find.ptr(y, x);
+
+										*(dest + 0) = sourse->b;
+										*(dest + 1) = sourse->g;
+										*(dest + 2) = sourse->r;
+									}
+
+									//cv::imshow("orig", orig);
+									//cv::imshow("find", find);
+
+									//cv::Mat imReg, h;
+									//cv_tests::alignImages(find, orig, imReg, h);
+									/////////////////////////////////
+
+									//////////////////////////////////////////////////////////////////////////
+									// Convert images to grayscale
+									cv::Mat im1Gray, im2Gray;
+									cv::cvtColor(find, im1Gray, CV_BGR2GRAY);
+									cv::cvtColor(orig, im2Gray, CV_BGR2GRAY);
+
+
+									// Variables to store keypoints and descriptors
+									std::vector<cv::KeyPoint> keypoints1, keypoints2;	// Стабильные тошки
+									cv::Mat descriptors1, descriptors2;					// Дата тошек
+
+									constexpr int	 MAX_FEATURES = 100;
+									constexpr double GOOD_MATCH_PERCENT = 0.80;
+									const	  string cv_dir = "D:\\_ram\\cv\\";
+
+									// Detect ORB features and compute descriptors.
+									cv::Ptr<cv::Feature2D> orb = cv::ORB::create(MAX_FEATURES);
+									//orb->detectAndCompute(im1Gray, Mat(), keypoints1, descriptors1);
+									//orb->detectAndCompute(im2Gray, Mat(), keypoints2, descriptors2);
+									try
+									{
+										orb->detect(im1Gray, keypoints1, cv::Mat());
+										orb->compute(im1Gray, keypoints1, descriptors1);
+
+										orb->detect(im2Gray, keypoints2, cv::Mat());
+										orb->compute(im2Gray, keypoints2, descriptors2);
+									}
+									catch (const std::exception& e)
+									{
+										string aaa = e.what();
+									}
+									// Match features.
+									std::vector<cv::DMatch> matches;
+									cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create("BruteForce-Hamming");
+									matcher->match(descriptors1, descriptors2, matches, cv::Mat());
+
+									// Sort matches by score
+									std::sort(matches.begin(), matches.end());
+
+									// Remove not so good matches
+									const int numGoodMatches = matches.size() * GOOD_MATCH_PERCENT;
+									matches.erase(matches.begin() + numGoodMatches, matches.end());
+
+
+									// Draw top matches
+									cv::Mat imMatches;
+									cv::drawMatches(find, keypoints1, orig, keypoints2, matches, imMatches);
+									//cv::imwrite(cv_dir + "3.jpg", imMatches);
+									cv::imshow("mach", imMatches);
+
+									// Extract location of good matches
+									std::vector<cv::Point2f> points1, points2;
+
+									for (size_t i = 0; i < matches.size(); i++)
+									{
+										points1.push_back(keypoints1[matches[i].queryIdx].pt);
+										points2.push_back(keypoints2[matches[i].trainIdx].pt);
+									}
+									///
+									cv::Mat im1Reg, h;
+									// Find homography
+
+									string buffer;
+
+									//ForArray(i, points1.size())
+									//{
+									//	buffer += str::format::insert(" {}-{}  :  {}-{}  = {}-{}\n",
+									//		points1[i].x,
+									//		points1[i].y,
+									//		points2[i].x,
+									//		points2[i].y,
+									//		points2[i].x - points1[i].x,
+									//		points2[i].y - points1[i].y);
+									//}
+									//log::debug << string("KeyPoints") + buffer;
+
+									float rare_w = 0;
+									float rare_h = 0;
+
+									struct near_fin
+									{
+										int id;
+										FLOAT2 val;
+									};
+
+									vector<near_fin> min_near;
+									min_near.resize(points1.size());
+
+									ForArray(i, points1.size())
+									{
+										float xrare = 0;
+										float yrare = 0;
+
+										ForArray(j, points1.size())
+											xrare += abs(points2[j].x - points1[j].x);
+
+										ForArray(j, points1.size())
+											yrare += abs(points2[i].y - points1[i].y);
+
+										min_near[i] = { (int)i, FLOAT2{xrare, yrare } };
+									}
+
+									std::sort(min_near.begin(), min_near.end(),
+										[](const near_fin&a, const near_fin&b)
+									{
+										return abs(a.val.x + a.val.y) < abs(b.val.x + b.val.y);
+									});
+
+
+									rare_w = points1[min_near[0].id].x - points2[min_near[0].id].x;
+									rare_h = points1[min_near[0].id].y - points2[min_near[0].id].y;
+
+
+									return { (int)rare_w, (int)rare_h };
+
+
+									h = cv::findHomography(points1, points2, cv::RANSAC);
+
+									// Use homography to warp image
+									cv::warpPerspective(find, im1Reg, h, orig.size());
+								}
+
+
+ 								 
+
+								
+								
+								//////////////////////////////////////////////////////////////////////////
+
+								float pos_x = 0;
+								float pos_y = 0;
+								int iters = 0;
+
+								ForArray(y, bitmap.h)
+								ForArray(x, bitmap.w)
+								{
+									auto p = bitmap.get_pixel(x, y);
+
+									auto points = _find_nearest_color(p.r);
+
+									ForArray(i, points.size())
+									{
+										pos_x += x + points[i].x;
+										pos_y += y + points[i].y;
+
+										iters++;
+ 									}
+ 								}
+
+								log::debug << std::string("color maches:") + std::to_string(iters);
+
+								pos_x = pos_x / iters;
+								pos_y = pos_y / iters;
+
+								return { (int)pos_x, (int)pos_y };
+ 							}
+
+						protected:
+
+							BITMAP_RGBA original_track;
+							BITMAP_RGBA dynamic_track;
+
+						};
+
+						static _ImageTracker img_tracker;
+
+						if (ImGui::Button("Track"))
+						{
+							tr_state = track_state::setting_track_p1;
+						}
+						ImGui::SameLine();
+						if (ImGui::Button("NoTrack"))
+						{
+							tr_state = track_state::ready_for_track_set;
+							track_p1 = { 0, 0 };
+							track_p2 = { 0, 0 };
+						}
+ 
+
+						static gl_gpu_texture gpu_tex;
+						//static gpu_shader_resourse gpu_res;
+ 
+
+  						if (ImGui::Button("Start tracking process"))
+						{
+							if (tr_state == track_state::ready_for_search_call)
+							{
+								tr_state = track_state::searching;
+								search_p1 = track_p1 - FLOAT2(100, 100);//FLOAT2{ math::RandomFloat(10,30), math::RandomFloat(10,30) };
+								search_p2 = track_p2 + FLOAT2(100, 100);//FLOAT2{ math::RandomFloat(10,30), math::RandomFloat(10,30) };
+							}
+							else
+							{
+								log::error << "Init track by first";
+							}
+  						}
+						 
+						//////////////////////////////////////////////////////////////////////////
+ 						ImGui::Text(str::format::insert("Size   | {} / {}", ReaderThread.vd_sourse_resolution.x, ReaderThread.vd_sourse_resolution.y).c_str());
+						ImGui::Text(str::format::insert("View   | {} / {}", ReaderThread.vd_output_resolution.x, ReaderThread.vd_output_resolution.y).c_str());
+ 						ImGui::Text(str::format::insert("Frames | {} / {}", ReaderThread.vd_curent_frame, ReaderThread.vd_frame_count).c_str());
+						ImGui::Text(str::format::insert("Status | play: {} / {}", vd_is_play, vd_status_msg.c_str()).c_str());
+						ImGui::Text("Track:");
+						ImGui::Text(str::format::insert("Track state | {}", (int)tr_state).c_str());
+						ImGui::Text(str::format::insert("Track P1    | {}-{}", track_p1.x, track_p1.y).c_str());
+						ImGui::Text(str::format::insert("Track P2    | {}-{}", track_p2.x, track_p2.y).c_str());
+ 						ImGui::Text(str::format::insert("Search P1   | {}-{}", search_p1.x, search_p1.y).c_str());
+						ImGui::Text(str::format::insert("Search P2   | {}-{}", search_p2.x, search_p2.y).c_str());
+						ImGui::Text(str::format::insert("Result P1   | {}-{}", result_p1.x, result_p1.y).c_str());
+						ImGui::Text(str::format::insert("Result P2   | {}-{}", result_p2.x, result_p2.y).c_str());
+
+						static int gpu_show_buffer = 0;
+						ImGui::RadioButton("New Frame",		&gpu_show_buffer, 0); ImGui::SameLine();
+						ImGui::RadioButton("Buck Grownd",	&gpu_show_buffer, 1); ImGui::SameLine();
+						ImGui::RadioButton("Move Map",		&gpu_show_buffer, 2);
+
+						static BITMAP_RGBA NewFrameBuff		(LOW_VD_RESOLUTION.x, LOW_VD_RESOLUTION.y);	// smoth buffer
+ 						static BITMAP_RGBA BuckGrowndBuff	(LOW_VD_RESOLUTION.x, LOW_VD_RESOLUTION.y);	// smoth buffer
+						static BITMAP_RGBA MoveMapBuff		(LOW_VD_RESOLUTION.x, LOW_VD_RESOLUTION.y);	// smoth buffer
+   						
+						static BITMAP_RGBA GpuTexBuff		(LOW_VD_RESOLUTION.x, LOW_VD_RESOLUTION.y);	// gpu texture
+						
+						
+						if (vd_is_play)
+						{
+ 							//=================================// Get new frame part
+ 							if ("NewFrame")
+							{
+								auto frame_getter = ReaderThread.GetNextFrame();
+
+								if (frame_getter.IsFailed())
+								{
+									vd_status_msg = frame_getter.GetErrorMsg();
+								}
+								else
+								{
+ 									//----------------------------------------------------// copy data from mat to buffer
+									auto frame = frame_getter.GetValue();
+
+									int w_size = LOW_VD_RESOLUTION.x;
+									int h_size = LOW_VD_RESOLUTION.y;
+
+									ForArray(y, h_size)
+									ForArray(x, w_size)
+									{
+										uchar* sourse = frame.ptr(y, 0);
+										auto* dest = NewFrameBuff.raw_data(x, y);
+
+										uint8_t r = *(sourse + x * 3 + 2);	// to gray
+										uint8_t g = *(sourse + x * 3 + 0);	// to gray
+										uint8_t b = *(sourse + x * 3 + 1);	// to gray
+										uint8_t c = (r + g + b) / 3;		// to gray
+
+										dest->r = r;
+										dest->b = g;
+										dest->g = b;
+										dest->a = 255;
+									}
+									//-----------------------------------------------------//  
+ 									
+									MakeOnce
+										BuckGrowndBuff = NewFrameBuff;
+									
+									ForArray(y, h_size)
+									ForArray(x, w_size)
+									{
+										//-----------------------------------------------------// buck buffer change part
+
+										auto* new_c = NewFrameBuff.raw_data(x, y);
+										auto* old_c = BuckGrowndBuff.raw_data(x, y);
+
+										float val_r = (new_c->r - old_c->r) / 100.;
+										float val_g = (new_c->g - old_c->g) / 100.;
+										float val_b = (new_c->b - old_c->b) / 100.;
+
+										int8_t sign_r = (val_r > 0) ? 1 : -1;
+										int8_t sign_g = (val_g > 0) ? 1 : -1;
+										int8_t sign_b = (val_b > 0) ? 1 : -1;
+
+										old_c->r += sign_r * (math::max(1.f, abs(val_r)));
+										old_c->g += sign_g * (math::max(1.f, abs(val_g)));
+										old_c->b += sign_b * (math::max(1.f, abs(val_b)));
+
+										//-----------------------------------------------------// move map generator
+
+										auto* move = MoveMapBuff.raw_data(x, y);
+
+										int8_t r_dec = new_c->r - old_c->r;
+										int8_t g_dec = new_c->g - old_c->g;
+										int8_t b_dec = new_c->b - old_c->b;
+
+										int8_t r_mod = abs(r_dec);
+										int8_t g_mod = abs(g_dec);
+										int8_t b_mod = abs(b_dec);
+
+										const uint8_t mod = r_mod + g_mod + b_mod;	// summ of color chanels change
+										const uint8_t eps = 255.0 / 10.0 * 3.0;		// color change to 10% total (3 * ~10% per chanel)
+
+										move->r = math::max(0, int(move->r - 25.6)); // map cool
+
+ 										if (mod > eps) 
+										{
+ 											move->r = math::min(255, int(move->r + 256/2));
+											move->g = 0;
+											move->b = 0;
+											move->a = 255;
+ 										}
+
+ 									}
+ 									//----------------------------------------------------// init gpu resourse
+									MakeOnce // or size changed
+									{
+										//gpu_tex.Release();
+										//gpu_res.Release();
+										//gpu_tex.Create(LOW_VD_RESOLUTION.x, LOW_VD_RESOLUTION.y, 1, gpu_object_access::write);
+										//gpu_res.CreateShaderResourse(gpu_tex.GetTexture());
+ 									}
+									//----------------------------------------------------// gpu res update part
+									BITMAP_RGBA& gpu_show_bitmap = NewFrameBuff;
+
+									if (gpu_show_buffer == 0) gpu_show_bitmap = NewFrameBuff;
+									if (gpu_show_buffer == 1) gpu_show_bitmap = BuckGrowndBuff;
+									if (gpu_show_buffer == 2) gpu_show_bitmap = MoveMapBuff;
+									 
+									gpu_tex.CreateUpdateData(gpu_show_bitmap);
+
+									//D3D11_MAPPED_SUBRESOURCE mapped;
+									//DX11GetDeviceContext()->Map(gpu_tex.GetTexture()->pTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+									//{
+									//	size_t line_len = mapped.RowPitch / sizeof(PIXEL_RGBA);
+									//	size_t line_count = mapped.DepthPitch / mapped.RowPitch;
+									//	size_t size_w = LOW_VD_RESOLUTION.x;
+									//	size_t size_h = LOW_VD_RESOLUTION.y;
+									//
+									//	//PIXEL* source = nullptr;
+									//	PIXEL_RGBA* dest = (PIXEL_RGBA*)mapped.pData;
+									//
+									//	ForArray(y, size_h)
+									//	{
+									//		memcpy(dest, gpu_show_bitmap->raw_data(0, y), sizeof(PIXEL_RGBA) * size_w);
+									//		dest += line_len;
+									//	}
+									//
+									//	DX11GetDeviceContext()->Unmap(gpu_tex.GetTexture()->pTexture, 0);
+									//}
+								}
+								
+ 							}
+ 
+							//----------------------------------------------------// tracker
+							if (tr_state != track_state::ready_for_track_set)
+							{
+ 								//----------------------------------------------------// grub track init data
+ 								if (tr_state == track_state::init_track_bits)
+								{
+ 									FLOAT2 pos  = track_p1;
+									FLOAT2 size = track_p2 - track_p1;
+
+ 									auto search_rect_bitmap = GpuTexBuff.get_region({ (int)pos.x, (int)pos.y }, { (int)size.x, (int)size.y });
+  
+									img_tracker.SetTrack(search_rect_bitmap);
+
+									tr_state = track_state::ready_for_search_call;
+ 								}
+
+								//----------------------------------------------------// search track in bitmap
+								if (tr_state == track_state::searching)
+								{
+									
+									FLOAT2 pos  = search_p1;
+									FLOAT2 size = search_p2 - search_p1;
+
+ 									//search_img = RGBA_BITMAP(size.x , size.y);
+
+									BITMAP_RGBA search_img = GpuTexBuff.get_region({ (int)pos.x, (int)pos.y }, { (int)size.x, (int)size.y });
+										 
+ 									INT2 find_pos = img_tracker.FindObject(search_img);
+
+									if (find_pos.y < 50 || find_pos.x < 50)
+									{
+										find_pos = { 500 , 500 };
+									}
+									//find_pos = { 0,0 };
+									//find_pos.x *= -1;
+									//find_pos.y *= -1;
+
+									result_p1 = {(float)find_pos.x, (float)find_pos.y};
+									result_p2 = result_p1 + (track_p2 - track_p1);
+ 									
+									//search_p1 = { result_p1.x - 10, result_p1.y - 10};
+									//search_p2 = { result_p2.x + 10, result_p2.y + 10 };
+								}
+   							}
+ 
+							
+ 
+							//=================================// Show
+ 							
+							FLOAT2 canvas_pos  = ImGui::GetCursorScreenPos();			 
+							FLOAT2 canvas_size = { (float)LOW_VD_RESOLUTION.x, (float)LOW_VD_RESOLUTION.y }; //ImGui::GetContentRegionAvail(); 
+
+							// Mouse track setter
+
+							if (tr_state == track_state::setting_track_p1 || 
+								tr_state == track_state::setting_track_p2)
+							{
+  								ImVec2 mouse_pos_in_canvas = ImVec2(ImGui::GetIO().MousePos.x - canvas_pos.x, ImGui::GetIO().MousePos.y - canvas_pos.y);
+
+								if (mouse_pos_in_canvas.x > 0)
+								if (mouse_pos_in_canvas.y > 0)
+								if (mouse_pos_in_canvas.x < canvas_size.x)
+								if (mouse_pos_in_canvas.y < canvas_size.y)
+ 								{
+ 									if (tr_state == track_state::setting_track_p1)
+									{
+										if (ImGui::IsMouseDown(0))
+										{
+											tr_state = track_state::setting_track_p2;
+											track_p1 = mouse_pos_in_canvas;
+ 										}
+  									}
+ 									if (tr_state == track_state::setting_track_p2)
+									{
+										track_p2 = mouse_pos_in_canvas;
+
+										if (ImGui::IsMouseDown(0) == false)
+										{
+											tr_state = track_state::init_track_bits;
+											track_p2 = mouse_pos_in_canvas;
+
+											FLOAT2 newp1 = { math::min(track_p1.x, track_p2.x), math::min(track_p1.y, track_p2.y) };
+											FLOAT2 newp2 = { math::max(track_p1.x, track_p2.x), math::max(track_p1.y, track_p2.y) };
+											track_p1 = newp1;
+											track_p2 = newp2;
+										}
+									}
+								}
+							}
+
+							// Render part
+
+							FLOAT2 cur = ImGui::GetCursorScreenPos();
+							ImGui::InvisibleButton("butt", { (float)LOW_VD_RESOLUTION.x, (float)LOW_VD_RESOLUTION.y });
+							ImGui::SetCursorScreenPos(cur);
+							
+							ImGui::Image((ImTextureID)(intptr_t)gpu_tex.GetTexture()->uid_tex,
+								{ (float)LOW_VD_RESOLUTION.x, (float)LOW_VD_RESOLUTION.y });
+
+							ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+							
+ 
+
+							draw_list->AddRectFilled(canvas_pos + track_p1,  canvas_pos + track_p2,  ImGui::ColorConvertFloat4ToU32({ 0.f, 1.0f, 0.f, 0.15f }));
+							draw_list->AddRect		(canvas_pos + track_p1,  canvas_pos + track_p2,  ImGui::ColorConvertFloat4ToU32({ 0.f, 1.0f, 0.f, 0.60f }));
+ 							draw_list->AddRectFilled(canvas_pos + search_p1 + result_p1, canvas_pos + search_p1 + result_p2, ImGui::ColorConvertFloat4ToU32({ 1.0f, 0.0f, 0.f, 0.3f }));
+ 							draw_list->AddRect		(canvas_pos + search_p1, canvas_pos + search_p2, ImGui::ColorConvertFloat4ToU32({ 1.f, 1.0f, 0.f, 0.60f }));
+
+
+ 						}// is_play end
+						  	
+					}
+					ImGui::End();
+
+				}
+
+				ImGui::Render();
+ 			}
+			
+			if (imgui_software_raster == false)
+			{
+				igp.ImplHardDraw();
+			}
+ 			else
+	   		{
+				//static u3d::vertex::PosTex vertex[] =
+				//{
+				//	{ FLOAT4(-1.0, -1.0, 0, 1.0),   FLOAT2(0, 1) },
+				//	{ FLOAT4(-1.0, +1.0, 0, 1.0),   FLOAT2(0, 0) },
+				//	{ FLOAT4(+1.0, +1.0, 0, 1.0),	FLOAT2(1, 0) },
+				//	{ FLOAT4(+1.0, -1.0, 0, 1.0),	FLOAT2(1, 1) },
+				//};
+				//static UINT index[] = { 0, 1 , 2 , 2, 3 , 0 };
+	
+	 		//	static gpu_buffer v_buffer;
+				//static gpu_buffer i_buffer;
+	 		//	static gpu_shader vs_shader;
+				//static gpu_shader ps_shader;
+				//
+				//static gl_gpu_texture gpu_tex;
+
+				////static gpu_texture Tex;
+				////static gpu_shader_resourse Res;
+	
+				//MakeOnce
+				//{
+				//	v_buffer.Create(gpu_buffer_type::vertex_buffer, &vertex, ArraySize(vertex), gpu_object_access::no_access);
+				//	i_buffer.Create(gpu_buffer_type::index_buffer,  &index,  ArraySize(index),  gpu_object_access::no_access);
+	
+	
+				//	vs_shader.Compilite(gpu_shader_type::vertex_shader, shader_POS_TEX, vertex[0].GetSemantic());
+				//	ps_shader.Compilite(gpu_shader_type::pixel_shader, shader_POS_TEX);
+				//}
+	
+	   //			{
+	 		//		static RGBA_BITMAP canvas_bitmap;
+	 		//		static size_t w = 0;  
+				//	static size_t h = 0;
+	
+				//	if (w != mRS.RenderCanvasWight || h != mRS.RenderCanvasHeight)
+				//	{
+				//		w = mRS.RenderCanvasWight;
+				//		h = mRS.RenderCanvasHeight;
+	
+				//		_DELETE_ARRAY(canvas_bitmap.data);
+				//		canvas_bitmap.w	= w;
+				//		canvas_bitmap.h	= h;
+				//		canvas_bitmap.data = new PIXEL_RGBA[w*h];
+	
+				//		memset(canvas_bitmap.data,255,sizeof(PIXEL_RGBA)*w*h);
+	
+	 		//			//if Tex can resize -> Tex.resize
+				//		//else
+				//		Tex.Release(); 
+				//		Res.Release(); 
+	
+				//		Tex.Create(w, h, 1, gpu_object_access::write);
+				//		Res.CreateShaderResourse(Tex.GetTexture());
+				//	}
+	  
+				//	D3D11_MAPPED_SUBRESOURCE mapped;
+				//	gpu_drawer::gpu_device()->pContext->Map(Tex.GetTexture()->pTexture, 0, D3D11_MAP_WRITE_DISCARD /*D3D11_MAP_WRITE_DISCARD*/, 0, &mapped);
+				//	{
+				//		size_t line_size	= mapped.RowPitch   / sizeof(PIXEL_RGBA);
+				//		size_t line_count	= mapped.DepthPitch / mapped.RowPitch;
+				//		size_t size_w		= canvas_bitmap.w;
+				//		size_t size_h		= canvas_bitmap.h;
+	 		//			//////////////////////////////////////////////////////////////////////////
+	 		//			PIXEL_RGBA*source = canvas_bitmap.data;
+				//		PIXEL_RGBA*dest	 = (PIXEL_RGBA*)mapped.pData;
+	 		//			//////////////////////////////////////////////////////////////////////////
+				//		ForArray(i, canvas_bitmap.w * canvas_bitmap.h )
+				//		{
+	 		//			}
+				//		
+				//		memset(canvas_bitmap.data, 255, sizeof(PIXEL_RGBA)*w*h);
+	
+	
+				//		// Render command lists
+				//		ImDrawData* draw_data = ImGui::GetDrawData();
+				//		int vtx_offset = 0;
+				//		int idx_offset = 0;
+	
+				//		int count = draw_data->CmdListsCount; 
+	
+				//		ForArray(i, count)
+				//		{
+				//			auto cmd_list = draw_data->CmdLists[i];
+	 
+				//			static RGBA_BITMAP font_tex;
+	 		//				//////////////////////////////////////////////////////////////////////////
+	 		//				MakeOnce
+				//			{
+				//				 ImGuiIO& io = ImGui::GetIO();
+				//				 uint8_t* pixels;
+				//				 int width;
+				//				 int height;
+				//				 io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+
+				//				 font_tex.w = width;
+				//				 font_tex.h = height;
+				//				 font_tex.data = new PIXEL_RGBA[font_tex.w*font_tex.h];
+				//				 memcpy(font_tex.data, pixels, font_tex.w*font_tex.h * sizeof(PIXEL_RGBA));
+
+				//				 lodepng_write_image({ (int)font_tex.w, (int)font_tex.h }, font_tex.data, "png.png");
+				//			}
+	
+				//			static const int tex__w = 431;
+				//			static const int tex__h = 399;
+	 		//				static fPIXEL_RGBA tex[tex__w *tex__h];
+				//			MakeOnce
+				//			{
+				//						RGBA_BITMAP file = lodepng_read_image("tex500.png");
+	
+				//						ForArray(i, tex__w * tex__h)
+				//						{
+				//							tex[i].r = file.data[i].r / 255.0;
+				//							tex[i].g = file.data[i].g / 255.0;
+				//							tex[i].b = file.data[i].b / 255.0;
+				//							tex[i].a = file.data[i].a / 255.0;
+				//						}
+	
+				//						lodepng_write_image({ tex__w, tex__h }, file.data, "png.png");
+				//					}
+	
+				//			struct trg
+				//			{
+				//				//------------------------------------------------------------------------------------------------ 3
+				//				__fast static float dot(CFLOAT2 a, CFLOAT2 b)
+				//						{
+				//							return a.x * b.x + a.y * b.y;
+				//						};
+				//				//------------------------------------------------------------------------------------------------ 44
+				//				__fast static FLOAT3 calc_strenge(CFLOAT2 p, CFLOAT2 a, CFLOAT2 b, CFLOAT2 c)
+				//						{
+				//							FLOAT3 dist;
+				//							FLOAT3 pairs;
+				//							FLOAT3 strenge;
+				//							//////////////////////////////////////////////// Distance
+				//							dist.x = 0.000001 + math::distance2D(p, a);
+				//							dist.y = 0.000002 + math::distance2D(p, b);
+				//							dist.z = 0.000003 + math::distance2D(p, c);
+				//							//////////////////////////////////////////////// Pairs
+				//							pairs.x = dist.y + dist.z; //1
+				//							pairs.y = dist.x + dist.z; //2
+				//							pairs.z = dist.x + dist.y; //3
+				//													   //////////////////////////////////////////////// Strenge
+				//							strenge = pairs / dist;
+				//							//////////////////////////////////////////////// Normalize Strenge
+				//							strenge = strenge / (strenge.x + strenge.y + strenge.z);
+	
+				//							return strenge;
+				//						};
+				//				//------------------------------------------------------------------------------------------------ 32
+				//				__fast static FLOAT3 calc_barycentric(CFLOAT2 p, CFLOAT2 a, CFLOAT2 b, CFLOAT2 c)
+				//						{
+				//							FLOAT2 v0 = b - a;
+				//							FLOAT2 v1 = c - a;
+				//							FLOAT2 v2 = p - a;
+	
+				//							float d00 = dot(v0, v0);
+				//							float d01 = dot(v0, v1);
+				//							float d11 = dot(v1, v1);
+				//							float d20 = dot(v2, v0);
+				//							float d21 = dot(v2, v1);
+				//							float invDenom = 1.0 / (d00 * d11 - d01 * d01);
+	
+				//							float v = (d11 * d20 - d01 * d21) * invDenom;
+				//							float w = (d00 * d21 - d01 * d20) * invDenom;
+				//							float u = 1.0f - v - w;
+	
+				//							return FLOAT3(u, v, w);
+				//						};
+				//				//------------------------------------------------------------------------------------------------ 11
+				//				__fast static int calc_texture_index(CFLOAT2 in_tex_coord, int tex_w, int tex_h)
+				//						{
+				//							float in_x = in_tex_coord.x;
+				//							in_x = in_x - (1.0 * (int)in_x); //std::fmod(in_x, 1.0f);
+				//							in_x = std::min(in_x, 1.0f);
+	
+				//							float in_y = in_tex_coord.y;
+				//							in_y = in_y - (1.0 * (int)in_y); //std::fmod(in_y, 1.0f);
+				//							in_y = std::min(in_y, 1.0f);
+	
+				//							int x = in_x * (tex_w);
+				//							int y = in_y * (tex_h);
+	
+				//							return y * tex_w + x;
+				//						};
+	
+				//			};
+				//			//////////////////////////////////////////////////////////////////////////
+				//			size_t i_n		 = cmd_list->IdxBuffer.size();
+				//			size_t trg_count = i_n / 3;
+				//			 
+				//			ForArray(i, trg_count)
+				//			{
+				//				ImDrawVert a = cmd_list->VtxBuffer[cmd_list->IdxBuffer[3*i+0]];
+				//				ImDrawVert b = cmd_list->VtxBuffer[cmd_list->IdxBuffer[3*i+1]];
+				//				ImDrawVert c = cmd_list->VtxBuffer[cmd_list->IdxBuffer[3*i+2]];
+	 
+				//				float min_x = std::min(std::min(a.pos.x, b.pos.x), c.pos.x);
+				//				float max_x = std::max(std::max(a.pos.x, b.pos.x), c.pos.x);
+				//				float min_y = std::min(std::min(a.pos.y, b.pos.y), c.pos.y);
+				//				float max_y = std::max(std::max(a.pos.y, b.pos.y), c.pos.y);
+	
+				//				min_x = std::max(min_x, min_x) - 1;
+				//				max_x = std::min(max_x, max_x) + 1;
+				//				min_y = std::max(min_y, min_y) - 1;
+				//				max_y = std::min(max_y, max_y) + 1;
+	  
+	 		//					for (int y = min_y; y < max_y; y++)
+				//				for (int x = min_x; x < max_x; x++)
+				//				{
+				//					//if (x < 0)							break;
+				//					//if (y < 0)							break;
+				//					//if (x > canvas_bitmap.w)			break;
+				//					//if (y > canvas_bitmap.h)			break;
+				//					//if (x >= m_RS.VirtualCanvasWight)	break;
+				//					//if (y >= m_RS.VirtualCanvasHeight)	break;
+	
+				//					FLOAT3 dist = math::point_near_triangle2D(	{ float(x), float(y)},
+				//																{ a.pos.x, a.pos.y },
+				//																{ b.pos.x, b.pos.y },
+				//																{ c.pos.x, c.pos.y });
+				//					bool cp1 = (dist.x < 0.0f);
+				//					bool cp2 = (dist.y < 0.0f);
+				//					bool cp3 = (dist.z < 0.0f);
+	 
+				//					float transq = -1.0;
+	
+				//					if (cp1 == cp2 || cp1 == cp3) transq = 1.0f;
+	
+				//					if(transq < 0.0f)
+	 		//						{
+				//						cp1 = (dist.x < 0.1f);
+				//						cp2 = (dist.y < 0.1f);
+				//						cp3 = (dist.z < 0.1f);
+	
+				//						if (cp1 == cp2 || cp1 == cp3) transq = 0.5f;
+	 		//						}
+	
+	   //								if (transq > 0.0f)
+	 		//						{
+				//						//////////////////////////////////////////////////////////////////////////
+				//						FLOAT2 A = { a.pos.x, a.pos.y };
+				//						FLOAT2 B = { b.pos.x, b.pos.y };
+				//						FLOAT2 C = { c.pos.x, c.pos.y };
+				//						FLOAT2 P = { (float)x + 0.001f  , (float)y + 0.001f };
+	
+				//						//FLOAT3 str = trg::calc_strenge  (P, A, B, C);
+				//						FLOAT3 bar = trg::calc_barycentric(P, A, B, C);
+	
+				//						//bar = str;
+				//						FLOAT2 tex_pos;
+	
+				//						tex_pos.x = a.uv.x * bar.x + b.uv.x * bar.y + c.uv.x * bar.z;
+				//						tex_pos.y = a.uv.y * bar.x + b.uv.y * bar.y + c.uv.y * bar.z;
+				//						tex_pos.x = abs(tex_pos.x);
+				//						tex_pos.y = abs(tex_pos.y);
+	
+				//						size_t	index = trg::calc_texture_index(FLOAT2(tex_pos.x, tex_pos.y), font_tex.w, font_tex.h);
+				//						PIXEL_RGBA	tex_color = font_tex.data[index];
+	
+				//						fPIXEL_RGBA texture_color;
+				//						texture_color.r = tex_color.r / 255.0f;
+				//						texture_color.g = tex_color.g / 255.0f;
+				//						texture_color.b = tex_color.b / 255.0f;
+				//						texture_color.a = tex_color.a / 255.0f;
+	
+	 		//							ImVec4 a_color_ = ImGui::ColorConvertU32ToFloat4(a.col);
+				//						ImVec4 b_color_ = ImGui::ColorConvertU32ToFloat4(b.col);
+				//						ImVec4 c_color_ = ImGui::ColorConvertU32ToFloat4(c.col);
+	
+				//						FLOAT4 a_color = { a_color_.x , a_color_.y , a_color_.z , a_color_.w };
+				//						FLOAT4 b_color = { b_color_.x , b_color_.y , b_color_.z , b_color_.w };
+				//						FLOAT4 c_color = { c_color_.x , c_color_.y , c_color_.z , c_color_.w };
+	
+				//						FLOAT4 p_color = (a_color + b_color + c_color) / 3.0f;
+				//						//////////////////////////////////////////////////////////////////////////
+				//						p_color;
+				//						texture_color;
+	
+	  	//								float color_alpha	= p_color.w * transq;
+				//						float texture_alpha = texture_color.a;
+				//						 
+				//						float final_r = (a_color.x * color_alpha) * (texture_color.r * texture_alpha);
+				//						float final_g = (a_color.y * color_alpha) * (texture_color.g * texture_alpha);
+				//						float final_b = (a_color.z * color_alpha) * (texture_color.b * texture_alpha);
+	  
+				//						fPIXEL_RGBA old_pix = {	canvas_bitmap.data[y*canvas_bitmap.w + x].r / 255.0f,
+				//											canvas_bitmap.data[y*canvas_bitmap.w + x].g / 255.0f,
+				//											canvas_bitmap.data[y*canvas_bitmap.w + x].b / 255.0f,
+				//											canvas_bitmap.data[y*canvas_bitmap.w + x].a / 255.0f };
+	
+				//						fPIXEL_RGBA new_pix = { final_r, final_g, final_b, color_alpha * texture_alpha};
+				//					 
+	 		//							
+				//						float cR = (new_pix.r * new_pix.a) + (old_pix.r * (1.0f - new_pix.a));
+				//						float cG = (new_pix.g * new_pix.a) + (old_pix.g * (1.0f - new_pix.a));
+				//						float cB = (new_pix.b * new_pix.a) + (old_pix.b * (1.0f - new_pix.a));
+	  
+	 		//							//canvas_bitmap.data[y*canvas_bitmap.w + x].r = cR * 255.0f;
+				//						//canvas_bitmap.data[y*canvas_bitmap.w + x].g = cG * 255.0f;
+				//						//canvas_bitmap.data[y*canvas_bitmap.w + x].b = cB * 255.0f;
+				//						canvas_bitmap.data[y*canvas_bitmap.w + x].r = cR * 255.0f;
+				//						canvas_bitmap.data[y*canvas_bitmap.w + x].g = cG * 255.0f;
+				//						canvas_bitmap.data[y*canvas_bitmap.w + x].b = cB * 255.0f;
+	 		//						}
+				//				}
+				//			}
+				//			 
+				//			//////////////////////////////////////////////////////////////////////////
+	 		//				 
+				//		}
+	 
+	
+	 
+	 		//			//////////////////////////////////////////////////////////////////////////
+	 		//			ForArray(y, size_h)
+				//		{
+	  	//					source	= (PIXEL_RGBA*)canvas_bitmap.data  + y * size_w;
+				//			dest	= (PIXEL_RGBA*)mapped.pData + y * line_size;						
+				//			memcpy(dest, source, sizeof(PIXEL_RGBA)*size_w);
+	  	//				}
+	
+	
+	
+	  	//			}			
+				//	gpu_drawer::gpu_device()->pContext->Unmap(Tex.GetTexture()->pTexture, 0);
+	 		//	}
+	
+				//UINT stride = sizeof(u3d::vertex::PosColor);
+				//UINT offset = 0;
+	
+				//gpu_drawer::gpu_device()->pContext->IASetInputLayout	(vs_shader.GetShader()->pLayout);
+	 		//	gpu_drawer::gpu_device()->pContext->IASetVertexBuffers(0, 1, &v_buffer.GetBuffer()->pBuffer, &stride, &offset);
+				//gpu_drawer::gpu_device()->pContext->IASetIndexBuffer	(i_buffer.GetBuffer()->pBuffer, DXGI_FORMAT_R32_UINT, 0);
+	
+				//gpu_drawer::gpu_device()->pContext->VSSetShader(vs_shader.GetShader()->pVshader, 0, 0);
+				//gpu_drawer::gpu_device()->pContext->PSSetShader(ps_shader.GetShader()->pPshader, 0, 0);
+				//gpu_drawer::gpu_device()->pContext->PSSetShaderResources(0, 1, &Res.GetShaderResourse()->pView);
+	
+				//gpu_drawer::gpu_device()->pContext->DrawIndexed(6, 0, 0);
+			}
+	
+	 
+			}
+ 
+
+
+		glViewport(0, 0, get_rs()->RenderCanvasWight, get_rs()->RenderCanvasHeight);
+		glfwMakeContextCurrent(glfw_window);
+		glfwSwapBuffers(glfw_window);
+
+		gpu_drawer::PresentRender();
+
+		if (false && "grabber")
+		{
+ 		//	auto state1 = RenderCopy.GetState();
+			//auto state2 = _main_rt_texture.GetState();
+
+			//static int LastW = -1;
+			//static int LastH = -1;
+ 
+			//static ScreenGraber	grabber;
+			//
+ 		//	INT2 pos;
+			//os_api::get_cursor_pos(&pos);
+
+
+			//QUAD rect;
+ 		//	rect.top	= - 128;
+			//rect.bottom = + 128;
+			//rect.left	= - 128;
+			//rect.right	= + 128;
+
+			//RGBA_BITMAP bitmap = grabber.Capture(rect, INT2{pos.x, pos.y});
+  
+			//if (bitmap.w != 0 || bitmap.h != 0)
+			//{
+
+			//	if (LastW != bitmap.w ||
+			//		LastH != bitmap.h)
+			//	{
+			//		LastW = bitmap.w;
+			//		LastH = bitmap.h;
+
+			//		RenderCopy.Release();
+			//		RenderCopy.Create(bitmap.w, bitmap.h, 1, gpu_object_access::write);
+ 		//			RenderCopyRes.Release();
+			//		RenderCopyRes.CreateShaderResourse(RenderCopy.GetTexture());
+ 
+			//	}
+ 
+			//	D3D11_MAPPED_SUBRESOURCE mapped;
+			//	DX11GetDeviceContext()->Map(RenderCopy.GetTexture()->pTexture, 0, D3D11_MAP_WRITE_DISCARD /*D3D11_MAP_WRITE_DISCARD*/, 0, &mapped);
+			//	{
+			//		size_t line_size	= mapped.RowPitch / sizeof(PIXEL_RGBA);
+			//		size_t line_count	= mapped.DepthPitch / mapped.RowPitch;
+  	//				size_t sw			= bitmap.w;
+			//		size_t sh			= bitmap.h;
+
+ 
+
+			//		PIXEL_RGBA*source = bitmap.data;
+			//		PIXEL_RGBA*dest	 = (PIXEL_RGBA*)mapped.pData;
+
+			//		ForArray(i, bitmap.w * bitmap.h) 
+			//		{
+			//			auto tempred = bitmap.data[i].r;
+
+			//			bitmap.data[i].r = bitmap.data[i].b;
+			//			bitmap.data[i].b = tempred;
+			//			bitmap.data[i].a = 255;
+			//		}
+  	//				ForArray(y, sh)
+			//		{
+			//			memcpy(dest, source, sizeof(PIXEL_RGBA)*sw);
+
+			//			source	= (PIXEL_RGBA*)bitmap.data	+ y * sw;
+			//			dest	= (PIXEL_RGBA*)mapped.pData	+ y * line_size;
+
+			//		}
+			//		DX11GetDeviceContext()->Unmap(RenderCopy.GetTexture()->pTexture, 0);
+
+			//	}
+			//}
+  		}
+ 
+
+  
+
+
+        return;
+ 	}
+
+
+    public:
+        os::Window *my_window;//for dubug
+
+
+};
+
+
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
+//int main(int argc, char **argv)
+{
+	std::cout << GetBuildInfo();
+
+ 	setlocale(LC_ALL, "Russian");	// for wcstombs and e.t. 
+// 	SetConsoleOutputCP(65001);		// utf8 encoding in console
+// 	SetConsoleCP(65001);
+  	//RESULT OK = CoInitializeEx(NULL, 0/* COINIT_MULTITHREADED | COINIT_SPEED_OVER_MEMORY*/);
+	os_api::Win32::OnUExepCreateMiniDump();
+ 
+	os::Console console;
+ 	os::Window	window;
+	
+	MyInputReader input;
+
+ 	Render render;
+    render.my_window = &window; // for debug, mbdell
+    //---------------------------------------------// Console
+ 	console.Init(ConsoleState());
+	console.Show();
+ 	console.RedirectIO();	
+	//---------------------------------------------// Window
+    window.Init(WindowState());			
+    window.Show();						
+    window.AttachInputHandler(&input);	
+    //---------------------------------------------// Render
+    RenderOptions RO = RenderOptions();
+
+ 	RO.WindowId		      = window.GetWindowId();	  
+	RO.RenderCanvasHeight = window.GetHeight(); 
+	RO.RenderCanvasWight  = window.GetWidth();  
+
+	RO.AAMode               = AntiAliasingMethod::NoAA;
+    RO.MSAA_SamplerCount    = 1;
+    RO.MSAA_QualityLevel    = 0;
+    RO.AnisotropicQuality   = 8;
+
+	RO.single_thread_gpu_api_use_promise = true;
+    RO.disable_gpu_task_timeout			 = false;
+
+	log::info << "Init render...";
+ 	render.Init(RO);
+	///////////////////////////////////////////// 
+
+	if ("TESTS")
+    {
+ 	    std::thread tests([]()
+	    {
+ 		    string aaa1 = "utf8 string + кирилица";
+		    string aaa2 = inUTF8("utf8 string + кирилица");
+
+			if (true && "test 1")
+			{
+  			}
+			if (true && "test 2")
+			{
+			}
+			if (true && "test 3")
+			{
+			}
+
+			if (true && "bitmap test")
+			{
+				BITMAP_RGBA sourse(512, 512);
+				BITMAP_RGBA dest(512, 512);
+				map<string, SuperTimer> timers;
+
+#define NewTest(name, code) { timers[name].SetStart(); ForArray(i,6) { code }; timers[name].SetEnd(); }
+
+				NewTest("1. pix by pix",
+
+					ForArray(y, sourse.h)
+					ForArray(x, sourse.w)
+				{
+					*dest.raw_data(x, y) = sourse.get_pixel(x, y);
+				}
+				);
+				//-------------------------------------------------------------------------
+				NewTest("2. memcpy lines",
+
+					ForArray(y, sourse.h)
+					memcpy(dest.raw_data(0, y), sourse.raw_data(0, y), sourse.w * sizeof(PIXEL_RGBA_256));
+
+				);
+				//-------------------------------------------------------------------------
+				NewTest("3. memcpy all",
+
+					memcpy(dest.data, sourse.data, sourse.h *sourse.w * sizeof(PIXEL_RGBA_256));
+
+				);
+				//-------------------------------------------------------------------------
+				NewTest("4. get_copy()",
+
+					dest = sourse.get_copy();
+
+				);
+				//-------------------------------------------------------------------------
+				NewTest("5. a = constructor(b)",
+
+					dest = BITMAP_RGBA(sourse);
+
+				);
+				//-------------------------------------------------------------------------
+				NewTest("6. a = b",
+
+					dest = sourse;
+
+				);
+ 
+				//NewTest 
+				{ 
+					timers["8. a = b "].SetStart(); 
+					 
+					std::thread thr([&]()
+					{
+						ForArray(i, 500)
+						{
+							dest = sourse;
+						};
+
+					});
+					ForArray(i, 500)
+					{
+						dest = sourse;
+					};
+
+					thr.join();
+					timers["8. a = b "].SetEnd();
+				}
+
+
+
+
+
+				log::debug << str::format::insert("tests________________________________________");
+
+				for (const auto& it : timers)
+				{
+					string first = it.first;
+					string second = to_string(it.second.GetTimeMili());
+
+					while (first.size() < 25)
+						first += " ";
+
+					log::debug << str::format::insert("{} : {} ms", first, second);
+				}
+
+				log::debug << str::format::insert("tests________________________________________");
+
+			}//bitmap test end
+
+
+	    });
+ 	    tests.join();
+    }
+
+ 	render.Paint(); // first draw test
+
+ 	while (window.IsExit() == false)
+	{
+		window.HandleMessages();
+
+ 		if (window.IsResized())
+			render.SetSize(window.GetWidth(), window.GetHeight());
+
+		render.NotifyFocus(window.IsActive());
+ 		render.Paint();
+ 	}
+	window.Close();
+	render.Release();
+
+	std::this_thread::sleep_for(std::chrono::seconds(3));
+ 	return 0;
+}
+
+
+ 

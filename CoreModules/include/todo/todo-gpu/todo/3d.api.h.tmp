@@ -1,0 +1,167 @@
+#pragma once
+
+#include "../shared_in.h"
+
+#include "gpu.types.h"
+
+#if (GPU_API == __gpu_api_dx_11)
+	#include "3d.types.dx11.h"
+#endif 
+
+#if (GPU_API == __gpu_api_opengl_2) || (GPU_API == __gpu_api_opengl_3)
+	#include "gl.api.h"
+#endif 
+
+
+#if (GPU_API == __gpu_api_software)
+  
+	class gpu_adapter{};
+	class gpu_output{};
+	class gpu_device{};
+	class gpu_swap_chain{};
+
+	class gpu_texture{};
+	class gpu_buffer{};
+	class gpu_render_target{};
+	class gpu_depth_stencil{};
+
+	class gpu_shader{};
+	class gpu_shader_resourse{};
+
+
+	class gpu_sampler{};
+	class gpu_rasterizer{};
+	class gpu_color_blender{};
+	class gpu_topology {};
+
+#endif
+
+
+#define IMPL_CALL
+
+//====================================================================// Hardware objects
+ 
+
+//====================================================================// 3d abstract units
+ 
+
+//////////////////////////////////////////////////////////////////////////
+enum class srv_type
+{
+    undefined,
+    texture,
+    constant_buffer,
+};
+
+namespace gpu_api
+{
+	 
+	//
+	// GPU API TEMPLATE
+	//
+	struct v_factory : impl_factory 
+	{
+	public:
+
+		//_factory*				get_fabric() { return this;		}
+		//gpu_device*			get_device() { return &_device;	}
+		//const RenderState*	get_rs	  () { return &mRS;		}
+
+	protected:
+
+ 		RenderState mRS;
+
+		//gpu_device		_device;
+		//gpu_swap_chain    _swap_chain;
+		//GpuAdapter		_main_adapter;
+		//GpuOutput			_main_output;
+		//gpu_render_target _main_rt;
+		//gpu_depth_stencil _main_ds;
+	 
+	protected:
+ 
+		virtual bool gpu_api_change_v_sunc(bool enabled) { return false; }
+		virtual bool gpu_api_change_view_port()             { return false; }
+
+	public:
+
+		//need tests
+
+		virtual bool gpu_api_check_msaa_settings(size_t samples, size_t qality) const
+		{
+			return false; // impl chech overload
+		}
+	
+	protected:
+
+		virtual std::vector<gpu_adapter> enum_gpu_adapters	() = 0;
+		virtual std::vector<gpu_output>  enum_adapter_outputs(gpu_adapter*) = 0;
+
+		//--------------------------------------------------------------------------// render
+
+		virtual bool gpu_api_present_render() = 0;
+
+		virtual bool gpu_api_resize_render(size_t vw, size_t vh, size_t w, size_t h) = 0;
+
+		virtual bool gpu_api_change_fullscreen_state(bool state) = 0;
+
+		virtual bool gpu_api_get_fullscreen_state() = 0;
+
+		//--------------------------------------------------------------------------// render targets
+
+		virtual void gpu_api_bind_render_targets(impl_render_target*, impl_depth_stencil*) = 0;
+
+		virtual void gpu_api_clear_render_target(FLOAT4 color, impl_render_target*) = 0;
+
+		virtual void gpu_api_clear_depth_stencil(DepthStencilClearMode mode, impl_depth_stencil*) = 0;
+
+		//--------------------------------------------------------------------------// draw calls
+
+		virtual void gpu_api_draw(size_t point_count) = 0;
+		virtual void gpu_api_draw_indexed(size_t index_count) = 0;
+	  //virtual void gpu_api_draw_indexed_instansed(size_t index_count) = 0;
+
+		//--------------------------------------------------------------------------// init
+
+		virtual bool gpu_api_init_device     () = 0;    //	create Device
+		virtual bool gpu_api_init_topologys  () = 0;    //	init topologys	
+		virtual bool gpu_api_init_samplers   () = 0;    //	init sampler	states	
+		virtual bool gpu_api_init_rasterizers() = 0;    //	init rasterizer states
+		virtual bool gpu_api_init_blenders   () = 0;    //	init blender	states
+
+		//virtual bool gpu_api_is_device_lost () = 0;
+		// call if device lost or settings changed
+		//virtual bool gpu_api_restart_device () = 0;
+
+		//--------------------------------------------------------------------------// render state
+
+		virtual void gpu_api_change_zbuffer_state(bool enabled)   = 0;
+		virtual void gpu_api_bind_topology  (impl_topology*)    = 0;
+		virtual void gpu_api_bind_sampler   (impl_sampler*)     = 0;
+		virtual void gpu_api_bind_raster(impl_rasterizer*)  = 0;
+		virtual void gpu_api_bind_blender   (impl_blender*)     = 0;
+
+		//--------------------------------------------------------------------------// gpu_buffers
+
+		// virtual bool gpu_api_generate_vbuffer(void* data, size_t data_size, bool cpu_acsess) = 0;   //  Create vertex   buffer ind map it to gpu memory
+		// virtual bool gpu_api_generate_ibuffer(void* data, size_t data_size, bool cpu_acsess) = 0;   //  Create index    buffer ind map it to gpu memory
+		// virtual bool gpu_api_generate_cbuffer(void* data, size_t data_size, bool cpu_acsess) = 0;   //  Create constant buffer ind map it to gpu memory
+		// 
+		// virtual void gpu_api_set_vertex_buffer(api_impl_buffer) = 0;
+		// virtual void gpu_api_set_index_buffer(api_impl_buffer) = 0;
+		// virtual void gpu_api_set_const_buffer(api_impl_buffer) = 0;
+		// 
+		// //--------------------------------------------------------------------------//  gpu_texture
+		// 
+		// virtual bool gpu_api_texture_from_file(const std::string& utf8_path) = 0;
+		// 
+		// //--------------------------------------------------------------------------//  gpu_shader
+		// 
+		// virtual bool gpu_api_compilite_vertex_shader(const std::string& asci_code, const api_impl_shader_initdata& sid) = 0;
+		// virtual bool gpu_api_compilite_pixel_shader (const std::string& asci_code, const api_impl_shader_initdata& sid) = 0;
+
+	};
+
+	//////////////////////////////////////////////////////////////////////////
+
+}

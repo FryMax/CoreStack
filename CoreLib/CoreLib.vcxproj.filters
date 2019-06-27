@@ -1,0 +1,186 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="CoreLib">
+      <UniqueIdentifier>{309effcd-559b-45b3-a880-ba704d0e187d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include">
+      <UniqueIdentifier>{19401a14-5eb7-4aed-a678-812cb1e699fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="[VS LINKER REF]">
+      <UniqueIdentifier>{f8eb7712-7023-4b79-ba8f-1913aca3f006}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="[VS LINKER REF]\murmur %28src%29">
+      <UniqueIdentifier>{9491f3b1-4a7e-479e-9d31-e69950f24ff4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="[VS LINKER REF]\spdlog %28src%29">
+      <UniqueIdentifier>{31372506-6a78-45bf-962a-a44fe2d27cfc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="[VS LINKER REF]\fmt %28src%29">
+      <UniqueIdentifier>{3d0bd69c-dcdc-441e-96f5-c06eb49b9ade}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CoreLib\utils">
+      <UniqueIdentifier>{9b5ea52c-9e81-4d47-a520-10354c8380f3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CoreLib\art">
+      <UniqueIdentifier>{c96f833b-b62d-45b5-b4dc-e45cde1788f5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CoreLib\log">
+      <UniqueIdentifier>{e90d57a4-ff5d-4d25-934c-28ab6dc469ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CoreLib\math">
+      <UniqueIdentifier>{b3178199-7fc0-4703-9d1e-9bc9ae5f9593}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CoreLib\os">
+      <UniqueIdentifier>{4a6303ec-a556-4eeb-afda-197001f4d8a8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CoreLib\os\0 - types">
+      <UniqueIdentifier>{9dfe213f-2675-4b9c-bb00-1890f2f79ada}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CoreLib\os\0 - api">
+      <UniqueIdentifier>{8f12df0c-e86e-425d-b924-c4d2d6bae7fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CoreLib\str">
+      <UniqueIdentifier>{38f8b29d-5b61-4ad0-b995-9cb1351c872b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="[VS LINKER REF]\lodepng %28src%29">
+      <UniqueIdentifier>{1bc98c94-4ba3-417a-b7cb-600fcc519988}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\CoreLib\art.bitmap.h">
+      <Filter>CoreLib\art</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\art.color.h">
+      <Filter>CoreLib\art</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\math.algo.h">
+      <Filter>CoreLib\math</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\math.types.h">
+      <Filter>CoreLib\math</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\os.clipboard.h">
+      <Filter>CoreLib\os</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\os.console.h">
+      <Filter>CoreLib\os</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\os.h">
+      <Filter>CoreLib\os</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\os.input.h">
+      <Filter>CoreLib\os</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\os.window.h">
+      <Filter>CoreLib\os</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\os.api.unix.h">
+      <Filter>CoreLib\os\0 - api</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\os.api.win.h">
+      <Filter>CoreLib\os\0 - api</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\os.types.win.h">
+      <Filter>CoreLib\os\0 - types</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\os.types.unix.h">
+      <Filter>CoreLib\os\0 - types</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\os.types.h">
+      <Filter>CoreLib\os\0 - types</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\os.api.h">
+      <Filter>CoreLib\os\0 - api</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\str.hash.h">
+      <Filter>CoreLib\str</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\str.compress.h">
+      <Filter>CoreLib\str</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\str.converter.h">
+      <Filter>CoreLib\str</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\str.crypto.h">
+      <Filter>CoreLib\str</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\str.format.h">
+      <Filter>CoreLib\str</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\utils.timer.h">
+      <Filter>CoreLib\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\utils.digits.h">
+      <Filter>CoreLib\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\utils.fs.h">
+      <Filter>CoreLib\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\umeta.h">
+      <Filter>CoreLib</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\globals.h">
+      <Filter>CoreLib</Filter>
+    </ClInclude>
+    <ClInclude Include="macro.h">
+      <Filter>CoreLib</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreLib\std_all.h">
+      <Filter>CoreLib</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="include\build.cpp">
+      <Filter>include</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\murmur3.cpp">
+      <Filter>[VS LINKER REF]\murmur %28src%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\fmt-6.1.2\src\posix.cc">
+      <Filter>[VS LINKER REF]\fmt %28src%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\fmt-6.1.2\src\format.cc">
+      <Filter>[VS LINKER REF]\fmt %28src%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\stdout_sinks.cpp">
+      <Filter>[VS LINKER REF]\spdlog %28src%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\async.cpp">
+      <Filter>[VS LINKER REF]\spdlog %28src%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\color_sinks.cpp">
+      <Filter>[VS LINKER REF]\spdlog %28src%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\file_sinks.cpp">
+      <Filter>[VS LINKER REF]\spdlog %28src%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\fmt.cpp">
+      <Filter>[VS LINKER REF]\spdlog %28src%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\spdlog-1.5.0\src\spdlog.cpp">
+      <Filter>[VS LINKER REF]\spdlog %28src%29</Filter>
+    </ClCompile>
+    <ClCompile Include="include\CoreLib\art.bitmap.cpp">
+      <Filter>CoreLib\art</Filter>
+    </ClCompile>
+    <ClCompile Include="include\CoreLib\log.logger.cpp">
+      <Filter>CoreLib\log</Filter>
+    </ClCompile>
+    <ClCompile Include="include\CoreLib.cpp">
+      <Filter>include</Filter>
+    </ClCompile>
+    <ClCompile Include="include\CoreLib\umeta.cpp">
+      <Filter>CoreLib</Filter>
+    </ClCompile>
+    <ClCompile Include="include\CoreLib\globals.cpp">
+      <Filter>CoreLib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\lodepng\lodepng.cpp">
+      <Filter>[VS LINKER REF]\lodepng %28src%29</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

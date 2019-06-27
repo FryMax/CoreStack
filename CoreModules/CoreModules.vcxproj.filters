@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="include\compress\compress.cpp" />
+    <ClCompile Include="include\gui\imimpl\imgui_impl_SDL2_GL3.cpp" />
+    <ClCompile Include="include\main.cpp" />
+    <ClCompile Include="include\net\net.sunc.cpp" />
+    <ClCompile Include="include\etc\etc.png.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\compress\compress.h" />
+    <ClInclude Include="include\etc\etc.png.h" />
+    <ClInclude Include="include\etc\etc.mk.kb.h" />
+    <ClInclude Include="include\graphics\gpu.drawer.h" />
+    <ClInclude Include="include\graphics\gpu.types.h" />
+    <ClInclude Include="include\matrix\glm.matrix.h" />
+    <ClInclude Include="include\gui\imgui.tools.h" />
+    <ClInclude Include="include\gui\imgui.impl.h" />
+    <ClInclude Include="include\gui\imimpl\imgui_impl_SDL2_GL3.h" />
+    <ClInclude Include="include\gui\imgui.launcher.h" />
+    <ClInclude Include="include\net\net.sunc.h" />
+    <ClInclude Include="include\net\net.awesomium.h" />
+    <ClInclude Include="include\shared.h" />
+    <ClInclude Include="include\shared_in.h" />
+    <ClInclude Include="include\todo\addon_lib265.h" />
+    <ClInclude Include="include\todo\addon_opencv.h" />
+    <ClInclude Include="include\todo\addon_win32.h" />
+    <ClInclude Include="include\todo\todo-gpu\addon_gpu_api.h" />
+    <ClInclude Include="include\todo\todo-gpu\gl.api.h" />
+    <ClInclude Include="include\todo\todo-gpu\gl.types.h" />
+    <ClInclude Include="include\todo\todo-gpu\gpu.api.h" />
+    <ClInclude Include="include\todo\todo-gpu\gpu.drawer.h" />
+    <ClInclude Include="include\todo\todo-gpu\todo\3d.api.dx11.h" />
+    <ClInclude Include="include\todo\todo-gpu\todo\3d.types.gl.h" />
+    <ClInclude Include="include\todo\to_dell_addon_jpg.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="include\todo\todo-gpu\todo\3d.api.dx11.h.tmp" />
+    <None Include="include\todo\todo-gpu\todo\3d.api.h.tmp" />
+    <None Include="include\todo\todo-gpu\todo\3d.assimp.h.tmp" />
+    <None Include="include\todo\todo-gpu\todo\3d.h.tmp" />
+    <None Include="include\todo\todo-gpu\todo\3d.tododx.h.tmp" />
+    <None Include="include\todo\todo-gpu\todo\3d.types.dx11.h.tmp" />
+    <None Include="include\todo\todo-gpu\todo\3d.types.gl.h.tmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="vs linker ref">
+      <UniqueIdentifier>{72476fb7-2ef6-4bde-8119-067717276061}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

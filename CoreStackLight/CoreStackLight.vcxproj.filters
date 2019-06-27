@@ -1,0 +1,136 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{c466c16c-01cf-4c5e-b90f-04daa02bb043}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\addon">
+      <UniqueIdentifier>{4aa4c604-ee95-40e2-96f8-a0bb643d4221}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\app">
+      <UniqueIdentifier>{ba1153ea-8827-4f34-8e71-d73f80c43295}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref">
+      <UniqueIdentifier>{b239509c-0129-42ea-a485-5e777fb6b6c8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 SDL2">
+      <UniqueIdentifier>{03ca7c76-9047-42de-828e-b3140319b0d3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 glew &amp; glwf">
+      <UniqueIdentifier>{b3e1df67-dda7-4204-ad2c-b9ee3a47c4d6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28src%29 ImGui">
+      <UniqueIdentifier>{ae24c6a7-e1f0-488a-9fd8-052a1de953c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28src%29 ImGui\impl">
+      <UniqueIdentifier>{1780e59a-40ba-4705-85a4-1ba407d376e8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28src%29 ImGui\impl %28sdl2 +gl3%29">
+      <UniqueIdentifier>{f1a81bd7-406a-4f13-8a2f-6b8c05cef0cc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28src%29 fmt">
+      <UniqueIdentifier>{a8ecb95b-2904-4a21-954f-761fb7ffa5f2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="em_build">
+      <UniqueIdentifier>{aa6aebd1-7acf-4902-b52c-2b972c68ef5c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vs linker ref\%28lib%29 SDL2\32">
+      <UniqueIdentifier>{5ddb57b2-8923-4094-86a3-e69869752afd}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="source\in.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imconfig.h">
+      <Filter>vs linker ref\%28src%29 ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imgui.h">
+      <Filter>vs linker ref\%28src%29 ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imgui_internal.h">
+      <Filter>vs linker ref\%28src%29 ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imstb_rectpack.h">
+      <Filter>vs linker ref\%28src%29 ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imstb_textedit.h">
+      <Filter>vs linker ref\%28src%29 ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd-party\imgui-1.70\imstb_truetype.h">
+      <Filter>vs linker ref\%28src%29 ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="source\addon_em.h">
+      <Filter>source\addon</Filter>
+    </ClInclude>
+    <ClInclude Include="source\MyInput.h">
+      <Filter>source\app</Filter>
+    </ClInclude>
+    <ClInclude Include="source\MySdlWindow.h">
+      <Filter>source\app</Filter>
+    </ClInclude>
+    <ClInclude Include="source\MyAppRender.h">
+      <Filter>source\app</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\in.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Main.cpp">
+      <Filter>source\app</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\imgui.cpp">
+      <Filter>vs linker ref\%28src%29 ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\imgui_demo.cpp">
+      <Filter>vs linker ref\%28src%29 ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\imgui_draw.cpp">
+      <Filter>vs linker ref\%28src%29 ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\imgui_widgets.cpp">
+      <Filter>vs linker ref\%28src%29 ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\examples\imgui_impl_opengl3.cpp">
+      <Filter>vs linker ref\%28src%29 ImGui\impl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\examples\imgui_impl_dx11.cpp">
+      <Filter>vs linker ref\%28src%29 ImGui\impl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd-party\imgui-1.70\examples\imgui_impl_opengl2.cpp">
+      <Filter>vs linker ref\%28src%29 ImGui\impl</Filter>
+    </ClCompile>
+    <ClCompile Include="source\em_main.cpp">
+      <Filter>source\addon</Filter>
+    </ClCompile>
+    <ClCompile Include="..\CoreShared\include\gui\imimpl\imgui_impl_SDL2_GL3.cpp">
+      <Filter>vs linker ref\%28src%29 ImGui\impl %28sdl2 +gl3%29</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\3rd-party\glew-2.1.0\32\lib\Release\libglew32.lib">
+      <Filter>vs linker ref\%28lib%29 glew &amp; glwf</Filter>
+    </Library>
+    <Library Include="..\3rd-party\glew-2.1.0\32\lib\Release\glew32.lib">
+      <Filter>vs linker ref\%28lib%29 glew &amp; glwf</Filter>
+    </Library>
+    <Library Include="..\..\libs\SDL2\lib\x86\SDL2main.lib">
+      <Filter>vs linker ref\%28lib%29 SDL2\32</Filter>
+    </Library>
+    <Library Include="..\..\libs\SDL2\lib\x86\SDL2test.lib">
+      <Filter>vs linker ref\%28lib%29 SDL2\32</Filter>
+    </Library>
+    <Library Include="..\..\libs\SDL2\lib\x86\SDL2.lib">
+      <Filter>vs linker ref\%28lib%29 SDL2\32</Filter>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="source\bat.bat">
+      <Filter>source\addon</Filter>
+    </None>
+    <None Include="source\build.bat">
+      <Filter>em_build</Filter>
+    </None>
+  </ItemGroup>
+</Project>
